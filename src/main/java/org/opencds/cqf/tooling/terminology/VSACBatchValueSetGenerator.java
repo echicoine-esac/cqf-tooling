@@ -36,7 +36,7 @@ public class VSACBatchValueSetGenerator extends Operation {
                     valueSetSource = value;
                     break;
                 case "baseurl":
-                case "burl":
+                case "burl": 
                     baseUrl = value;
                     break;
                 case "setname":
@@ -56,7 +56,8 @@ public class VSACBatchValueSetGenerator extends Operation {
         }
 
         File[] valueSetFiles = valueSetDirectory.listFiles();
-        if (valueSetFiles == null) {
+        //isDirectory() already establishes if directory is null.  files.length establishes if directory exists but is empty:
+        if (valueSetFiles.length == 0) {
             throw new RuntimeException("The specified path to valueset files is empty");
         }
         if (valueSetSource.equals("cms")) {

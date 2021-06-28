@@ -11,73 +11,78 @@ import org.hl7.fhir.r4.model.Coding;
  */
 public class DictionaryCode {
 
-    private String label;
-    public String getLabel() {
-        return this.label;
-    }
-    public void setLabel(String label) {
-        if (label == null) {
-            this.label = null;
-        }
-        this.label = label.replace((char)160, (char)32).trim();
-    }
+	private String code;
+	private String display;
+	private String label;
+	private String parent;
+	private String system;
+	private List<CodeableConcept> terminologies;
 
-    private String display;
-    public String getDisplay() {
-        return this.display;
-    }
-    public void setDisplay(String display) {
-        if (display == null) {
-            this.display = null;
-        }
-        this.display = display.replace((char)160, (char)32).trim();
-    }
+	public String getCode() {
+		return this.code;
+	}
 
-    private String parent;
-    public String getParent() {
-        return this.parent;
-    }
-    public void setParent(String parent) {
-        this.parent = parent;
-    }
+	public String getDisplay() {
+		return this.display;
+	}
 
-    private String system;
-    public String getSystem() {
-        return this.system;
-    }
-    public void setSystem(String system) {
-        this.system = system;
-    }
+	public String getLabel() {
+		return this.label;
+	}
 
-    private String code;
-    public String getCode() {
-        return this.code;
-    }
-    public void setCode(String code) {
-        if (code == null) {
-            this.code = null;
-        }
-        this.code = code.replace((char)160, (char)32).trim();
-    }
+	public String getParent() {
+		return this.parent;
+	}
 
-    private List<CodeableConcept> terminologies;
-    public List<CodeableConcept> getTerminologies() {
-        if (this.terminologies == null) {
-            this.terminologies = new ArrayList<>();
-        }
-        return this.terminologies;
-    }
+	public String getSystem() {
+		return this.system;
+	}
 
+	public List<CodeableConcept> getTerminologies() {
+		if (this.terminologies == null) {
+			this.terminologies = new ArrayList<>();
+		}
+		return this.terminologies;
+	}
 
-    public CodeableConcept toCodeableConcept() {
-        CodeableConcept cc = new CodeableConcept();
-        //cc.setText(this.label);
-        Coding coding = new Coding();
-        coding.setCode(this.code);
-        coding.setDisplay(this.display);
-        // TODO: Support different systems here
-        coding.setSystem(this.system);
-        cc.addCoding(coding);
-        return cc;
-    }
+	public void setCode(String code) {
+		if (code == null) {
+			this.code = null;
+		}
+		this.code = code.replace((char) 160, (char) 32).trim();
+	}
+
+	public void setDisplay(String display) {
+		if (display == null) {
+			this.display = null;
+		}
+		this.display = display.replace((char) 160, (char) 32).trim();
+	}
+
+	public void setLabel(String label) {
+		if (label == null) {
+			this.label = null;
+		}
+		this.label = label.replace((char) 160, (char) 32).trim();
+	}
+
+	public void setParent(String parent) {
+		this.parent = parent;
+	}
+
+	public void setSystem(String system) {
+		this.system = system;
+	}
+
+	public CodeableConcept toCodeableConcept() {
+		CodeableConcept cc = new CodeableConcept();
+		// cc.setText(this.label);
+		Coding coding = new Coding();
+		coding.setCode(this.code);
+		coding.setDisplay(this.display);
+		// TODO: Support different systems here
+		coding.setSystem(this.system);
+		cc.addCoding(coding);
+		return cc;
+	}
 }

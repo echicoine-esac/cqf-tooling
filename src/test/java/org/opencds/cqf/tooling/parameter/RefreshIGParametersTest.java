@@ -1,19 +1,24 @@
 package org.opencds.cqf.tooling.parameter;
 
-import static org.junit.Assert.*;
-
-import org.junit.Before;
 import org.junit.Test;
+import org.opencds.cqf.tooling.processor.argument.RefreshIGArgumentProcessor;
 
 public class RefreshIGParametersTest {
 
-	@Before
-	public void setUp() throws Exception {
-	}
+	 
 
 	@Test
-	public void test() {
-		fail("Not yet implemented");
+	public void testArgs() {
+		
+		
+		RefreshIGArgumentProcessor rigp = new RefreshIGArgumentProcessor();
+		
+		String[] args = {"test", "test"};
+		
+		RefreshIGParameters params = rigp.parseAndConvert(args);
+		
+		
+		
 	}
 
 }

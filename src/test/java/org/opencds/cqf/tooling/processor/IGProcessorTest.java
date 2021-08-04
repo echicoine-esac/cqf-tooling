@@ -2,7 +2,13 @@ package org.opencds.cqf.tooling.processor;
 
 import org.junit.Test;
 
-public class IGProcessorTest extends BaseProcessorTest {
+public class IGProcessorTest {
+	
+	@Test
+	public void testInitializeFromIG(){
+		
+	}
+	
 
 	@Test
 	public void publishIGTest() {

@@ -18,6 +18,10 @@ import org.opencds.cqf.tooling.utilities.LogUtils;
 import ca.uhn.fhir.context.FhirContext;
 
 public class IGProcessor extends BaseProcessor {
+	
+	//default serialVersion id
+    private static final long serialVersionUID = 1L;
+	
     //mega ig method
     public void publishIG(RefreshIGParameters params) {
         if (params.ini != null) {

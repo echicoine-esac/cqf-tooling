@@ -290,14 +290,14 @@ public class IOUtils
                     return null;
                 }
             }
-            try (FileReader reader = new FileReader(file)){
-                resource = parser.parseResource(reader);
-            }
+
+            FileReader reader = new FileReader(file);
+            resource = parser.parseResource(reader);
             cachedResources.put(path, resource);
         }
         catch (Exception e)
         {
-            throw new RuntimeException(String.format("Error reading resource from path %s: %s", path, e.getMessage()), e);
+            LogUtils.info(String.format("Error reading resource from path %s: %s", path, e.getMessage()));
         }
         return resource;
     }

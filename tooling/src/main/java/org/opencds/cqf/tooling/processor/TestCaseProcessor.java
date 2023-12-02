@@ -7,7 +7,6 @@ import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Group;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Reference;
-import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.utilities.BundleUtils;
 import org.opencds.cqf.tooling.utilities.IOUtils;
 import org.opencds.cqf.tooling.utilities.LogUtils;
@@ -17,9 +16,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CopyOnWriteArrayList;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.FhirVersionEnum;
 import ca.uhn.fhir.model.api.IFhirVersion;
 
@@ -37,116 +35,83 @@ public class TestCaseProcessor
         List<String> resourceTypeTestGroups = IOUtils.getDirectoryPaths(path, false);
         IFhirVersion version = fhirContext.getVersion();
 
-        //build list of tasks via for loop:
-        List<Callable<Void>> resourceTypeTestGroupsTasks = new ArrayList<>();
-
         for (String group : resourceTypeTestGroups) {
-            resourceTypeTestGroupsTasks.add(() -> {
+            List<String> testArtifactPaths = IOUtils.getDirectoryPaths(group, false);
+            for (String testArtifactPath : testArtifactPaths) {
+                List<String> testCasePaths = IOUtils.getDirectoryPaths(testArtifactPath, false);
 
-                //build list of tasks via for loop:
-                List<Callable<Void>> testArtifactPathsTasks = new CopyOnWriteArrayList<>();
+                org.hl7.fhir.r4.model.Group testGroup = null;
 
-                List<String> testArtifactPaths = IOUtils.getDirectoryPaths(group, false);
+                if (version.getVersion() == FhirVersionEnum.R4) {
+                    testGroup = new org.hl7.fhir.r4.model.Group();
+                    testGroup.setActive(true);
+                    testGroup.setType(Group.GroupType.PERSON);
+                    testGroup.setActual(true);
+                }
 
-                for (String testArtifactPath : testArtifactPaths) {
-                    testArtifactPathsTasks.add(() -> {
-                        List<String> testCasePaths = IOUtils.getDirectoryPaths(testArtifactPath, false);
+                // For each test case we need to create a group
+                if (!testCasePaths.isEmpty()) {
+                    String measureName = IOUtils.getMeasureTestDirectory(testCasePaths.get(0));
+                    if (testGroup != null) {
+                        testGroup.setId(measureName);
 
-                        org.hl7.fhir.r4.model.Group testGroup;
+                        testGroup.addExtension("http://hl7.org/fhir/StructureDefinition/artifact-testArtifact",
+                                new CanonicalType("http://ecqi.healthit.gov/ecqms/Measure/" + measureName));
+                    }
 
-                        if (version.getVersion() == FhirVersionEnum.R4) {
-                            testGroup = new org.hl7.fhir.r4.model.Group();
-                            testGroup.setActive(true);
-                            testGroup.setType(Group.GroupType.PERSON);
-                            testGroup.setActual(true);
-                        } else {
-                            testGroup = null;
-                        }
+                    for (String testCasePath : testCasePaths) {
+                        try {
+                            List<String> paths = IOUtils.getFilePaths(testCasePath, true);
+                            List<IBaseResource> resources = IOUtils.readResources(paths, fhirContext);
+                            ensureIds(testCasePath, resources);
 
-                        // For each test case we need to create a group
-                        if (!testCasePaths.isEmpty()) {
-                            String measureName = IOUtils.getMeasureTestDirectory(testCasePaths.get(0));
+                            // Loop through resources and any that are patients need to be added to the test Group
+                            // Handle individual resources when they exist
+                            for (IBaseResource resource : resources) {
+                                if ((resource.fhirType() == "Patient") && (version.getVersion() == FhirVersionEnum.R4)) {
+                                    org.hl7.fhir.r4.model.Patient patient = (org.hl7.fhir.r4.model.Patient) resource;
+                                    addPatientToGroupR4(testGroup, patient);
+                                }
 
-                            if (testGroup != null) {
-                                testGroup.setId(measureName);
-
-                                testGroup.addExtension("http://hl7.org/fhir/StructureDefinition/artifact-testArtifact",
-                                        new CanonicalType("http://ecqi.healthit.gov/ecqms/Measure/" + measureName));
-                            }
-
-                            //build list of tasks via for loop:
-                            List<Callable<Void>> testCasePathsTasks = new CopyOnWriteArrayList<>();
-
-                            for (String testCasePath : testCasePaths) {
-                                testCasePathsTasks.add(() -> {
-                                    try {
-                                        List<String> paths = IOUtils.getFilePaths(testCasePath, true);
-                                        List<IBaseResource> resources = IOUtils.readResources(paths, fhirContext);
-                                        ensureIds(testCasePath, resources);
-
-                                        // Loop through resources and any that are patients need to be added to the test Group
-                                        // Handle individual resources when they exist
-                                        for (IBaseResource resource : resources) {
-                                            if ((resource.fhirType() == "Patient") && (version.getVersion() == FhirVersionEnum.R4)) {
-                                                org.hl7.fhir.r4.model.Patient patient = (org.hl7.fhir.r4.model.Patient) resource;
-                                                addPatientToGroupR4(testGroup, patient);
-                                            }
-
-                                            // Handle bundled resources when that is how they are provided
-                                            if ((resource.fhirType() == "Bundle") && (version.getVersion() == FhirVersionEnum.R4)) {
-                                                org.hl7.fhir.r4.model.Bundle bundle = (org.hl7.fhir.r4.model.Bundle) resource;
-                                                var bundleResources =
-                                                        BundleUtils.getR4ResourcesFromBundle(bundle);
-                                                for (IBaseResource bundleResource : bundleResources) {
-                                                    if (bundleResource.fhirType() == "Patient") {
-                                                        org.hl7.fhir.r4.model.Patient patient = (org.hl7.fhir.r4.model.Patient) bundleResource;
-                                                        addPatientToGroupR4(testGroup, patient);
-                                                    }
-                                                }
-                                            }
+                                // Handle bundled resources when that is how they are provided
+                                if ((resource.fhirType() == "Bundle") && (version.getVersion() == FhirVersionEnum.R4)) {
+                                    org.hl7.fhir.r4.model.Bundle bundle = (org.hl7.fhir.r4.model.Bundle) resource;
+                                    var bundleResources =
+                                            BundleUtils.getR4ResourcesFromBundle(bundle);
+                                    for (IBaseResource bundleResource : bundleResources) {
+                                        if (bundleResource.fhirType() == "Patient") {
+                                            org.hl7.fhir.r4.model.Patient patient = (org.hl7.fhir.r4.model.Patient) bundleResource;
+                                            addPatientToGroupR4(testGroup, patient);
                                         }
-
-                                        // If the resource is a transaction bundle then don't bundle it again otherwise do
-                                        String fileId = getId(FilenameUtils.getName(testCasePath));
-                                        Object bundle;
-                                        if ((resources.size() == 1) && (BundleUtils.resourceIsABundle(resources.get(0)))) {
-                                            bundle = processTestBundle(fileId, resources.get(0), fhirContext);
-                                        }else {
-                                            bundle = BundleUtils.bundleArtifacts(fileId, resources, fhirContext, false);
-                                        }
-                                        IOUtils.writeBundle(bundle, testArtifactPath, encoding, fhirContext);
-
-                                    } catch (Exception e) {
-                                        LogUtils.putException(testCasePath, e);
-                                    } finally {
-                                        LogUtils.warn(testCasePath);
                                     }
-                                    //task requires return statement
-                                    return null;
-                                });
-
-                            }//end for (String testCasePath : testCasePaths) {
-                            ThreadUtils.executeTasks(testCasePathsTasks);
-
-                            // Need to output the Group if it exists
-                            if (testGroup != null) {
-                                IOUtils.writeResource(testGroup, testArtifactPath, encoding, fhirContext, true,
-                                        "Group-" + measureName);
+                                }
                             }
+
+                            // If the resource is a transaction bundle then don't bundle it again otherwise do
+                            String fileId = getId(FilenameUtils.getName(testCasePath));
+                            Object bundle;
+                            if ((resources.size() == 1) && (BundleUtils.resourceIsABundle(resources.get(0)))) {
+                                bundle = processTestBundle(fileId, resources.get(0), fhirContext);
+                            }else {
+                                bundle = BundleUtils.bundleArtifacts(fileId, resources, fhirContext, false);
+                            }
+                            IOUtils.writeBundle(bundle, testArtifactPath, encoding, fhirContext);
+
+                        } catch (Exception e) {
+                            LogUtils.putException(testCasePath, e);
+                        } finally {
+                            LogUtils.warn(testCasePath);
                         }
+                    }
 
-                        //task requires return statement
-                        return null;
-                    });
-                }//end for (String testArtifactPath : testArtifactPaths) {
-
-                ThreadUtils.executeTasks(testArtifactPathsTasks);
-
-                //task requires return statement
-                return null;
-            });
-        }//end for (String group : resourceTypeTestGroups) {
-        ThreadUtils.executeTasks(resourceTypeTestGroupsTasks);
+                    // Need to output the Group if it exists
+                    if (testGroup != null) {
+                        IOUtils.writeResource(testGroup, testArtifactPath, encoding, fhirContext, true,
+                                "Group-" + measureName);
+                    }
+                }
+            }
+        }
     }
 
     public static Object processTestBundle(String id, IBaseResource resource, FhirContext fhirContext) {
@@ -154,10 +119,28 @@ public class TestCaseProcessor
             case DSTU3:
                 org.hl7.fhir.dstu3.model.Bundle dstu3Bundle = (org.hl7.fhir.dstu3.model.Bundle) resource;
                 ResourceUtils.setIgId(id, dstu3Bundle, false);
+                dstu3Bundle.setType(org.hl7.fhir.dstu3.model.Bundle.BundleType.TRANSACTION);
+
+                for (org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent entry : dstu3Bundle.getEntry()) {
+                    org.hl7.fhir.dstu3.model.Bundle.BundleEntryRequestComponent request = new org.hl7.fhir.dstu3.model.Bundle.BundleEntryRequestComponent();
+                    request.setMethod(org.hl7.fhir.dstu3.model.Bundle.HTTPVerb.PUT);
+                    request.setUrl(entry.getResource().fhirType() + "/" + entry.getResource().getIdElement().getIdPart());
+                    entry.setRequest(request);
+                }
+
                 return dstu3Bundle;
+
             case R4:
                 org.hl7.fhir.r4.model.Bundle r4Bundle = (org.hl7.fhir.r4.model.Bundle)resource;
                 ResourceUtils.setIgId(id, r4Bundle, false);
+                r4Bundle.setType(org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION);
+                for (org.hl7.fhir.r4.model.Bundle.BundleEntryComponent entry : r4Bundle.getEntry()) {
+                    org.hl7.fhir.r4.model.Bundle.BundleEntryRequestComponent request = new org.hl7.fhir.r4.model.Bundle.BundleEntryRequestComponent();
+                    request.setMethod(org.hl7.fhir.r4.model.Bundle.HTTPVerb.PUT); // Adjust the HTTP method as needed
+                    request.setUrl(entry.getResource().fhirType() + "/" + entry.getResource().getIdElement().getIdPart());
+                    entry.setRequest(request);
+                }
+
                 return r4Bundle;
             default:
                 throw new IllegalArgumentException("Unknown fhir version: " + fhirContext.getVersion().getVersion().getFhirVersionString());

@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.google.common.base.Strings;
 
@@ -167,7 +168,7 @@ public class IGProcessor extends BaseProcessor {
 
         IGProcessor.ensure(rootDir, includePatientScenarios, includeTerminology, IOUtils.resourceDirectories);
 
-        List<String> refreshedLibraryNames;
+        CopyOnWriteArrayList<String> refreshedLibraryNames;
         refreshedLibraryNames = libraryProcessor.refreshIgLibraryContent(this, encoding, libraryPath, libraryOutputPath, versioned, fhirContext, params.shouldApplySoftwareSystemStamp);
         refreshedResourcesNames.addAll(refreshedLibraryNames);
 

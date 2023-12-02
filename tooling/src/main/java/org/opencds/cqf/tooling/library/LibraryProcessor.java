@@ -3,11 +3,11 @@ package org.opencds.cqf.tooling.library;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FilenameUtils;
@@ -64,15 +64,15 @@ public class LibraryProcessor extends BaseProcessor {
         }
     }
 
-    public List<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
+    public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
         return refreshIgLibraryContent(parentContext, outputEncoding, null, null, versioned, fhirContext, shouldApplySoftwareSystemStamp);
     }
 
-    public List<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
+    public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
         return refreshIgLibraryContent(parentContext, outputEncoding, null, libraryOutputDirectory, versioned, fhirContext, shouldApplySoftwareSystemStamp);
     }
 
-    public List<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryPath, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
+    public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryPath, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
         System.out.println("Refreshing libraries...");
         // ArrayList<String> refreshedLibraryNames = new ArrayList<String>();
 
@@ -278,19 +278,20 @@ public class LibraryProcessor extends BaseProcessor {
         optionsParameters.addParameter("verifyOnly", compilerOptions.getVerifyOnly());
     }
 
-    protected List<Library> refreshGeneratedContent(List<Library> sourceLibraries) {
+    protected CopyOnWriteArrayList<Library> refreshGeneratedContent(CopyOnWriteArrayList<Library> sourceLibraries) {
         return internalRefreshGeneratedContent(sourceLibraries);
     }
 
-    public List<Library> refreshGeneratedContent(String cqlDirectoryPath, String fhirVersion) {
-        List<String> result = new ArrayList<String>();
+    public CopyOnWriteArrayList<Library> refreshGeneratedContent(String cqlDirectoryPath, String fhirVersion) {
+        CopyOnWriteArrayList<String> result = new CopyOnWriteArrayList<String>();
         File input = new File(cqlDirectoryPath);
         if (input.exists() && input.isDirectory()) {
             result.add(input.getAbsolutePath());
         }
         setBinaryPaths(result);
 
-        List<Library> libraries = new ArrayList<Library>();
+        //multithreaded:
+        CopyOnWriteArrayList<Library> libraries = new CopyOnWriteArrayList<>();
         return internalRefreshGeneratedContent(libraries);
     }
 
@@ -300,45 +301,63 @@ public class LibraryProcessor extends BaseProcessor {
                         .setSystem("http://terminology.hl7.org/CodeSystem/library-type")));
     }
 
-    private List<Library> internalRefreshGeneratedContent(List<Library> sourceLibraries) {
+    private CopyOnWriteArrayList<Library> internalRefreshGeneratedContent(CopyOnWriteArrayList<Library> sourceLibraries) {
         getCqlProcessor().execute();
+
+        //build list of tasks via for loop:
+        ArrayList<Callable<Void>> getFileInfoTasks = new ArrayList<>();
 
         // For each CQL file, ensure that there is a Library resource with a matching name and version
         for (CqlProcessor.CqlSourceFileInformation fileInfo : getCqlProcessor().getAllFileInformation()) {
-            if (fileInfo.getIdentifier() != null && fileInfo.getIdentifier().getId() != null && !fileInfo.getIdentifier().getId().equals("")) {
-                Library existingLibrary = null;
-                for (Library sourceLibrary : sourceLibraries) {
-                    if (fileInfo.getIdentifier().getId().equals(sourceLibrary.getName())
-                            && (fileInfo.getIdentifier().getVersion() == null || fileInfo.getIdentifier().getVersion().equals(sourceLibrary.getVersion()))
-                    ) {
-                        existingLibrary = sourceLibrary;
-                        break;
+            getFileInfoTasks.add(() -> {
+
+                if (fileInfo.getIdentifier() != null && fileInfo.getIdentifier().getId() != null && !fileInfo.getIdentifier().getId().equals("")) {
+                    Library existingLibrary = null;
+                    for (Library sourceLibrary : sourceLibraries) {
+                        if (fileInfo.getIdentifier().getId().equals(sourceLibrary.getName())
+                                && (fileInfo.getIdentifier().getVersion() == null || fileInfo.getIdentifier().getVersion().equals(sourceLibrary.getVersion()))
+                        ) {
+                            existingLibrary = sourceLibrary;
+                            break;
+                        }
+                    }
+
+                    if (existingLibrary == null) {
+                        Library newLibrary = new Library();
+                        newLibrary.setName(fileInfo.getIdentifier().getId());
+                        newLibrary.setVersion(fileInfo.getIdentifier().getVersion());
+                        newLibrary.setUrl(String.format("%s/Library/%s", (newLibrary.getName().equals("FHIRHelpers") ? "http://hl7.org/fhir" : canonicalBase), fileInfo.getIdentifier().getId()));
+                        newLibrary.setId(newLibrary.getName() + (versioned ? "-" + newLibrary.getVersion() : ""));
+                        setLibraryType(newLibrary);
+                        validateIdAlphaNumeric(newLibrary.getId());
+                        ArrayList<Attachment> attachments = new ArrayList<Attachment>();
+                        Attachment attachment = new Attachment();
+                        attachment.setContentType("application/elm+xml");
+                        attachment.setData(fileInfo.getElm());
+                        attachments.add(attachment);
+                        newLibrary.setContent(attachments);
+                        sourceLibraries.add(newLibrary);
                     }
                 }
+                //task requires return statement
+                return null;
+            });
+        }//end for
 
-                if (existingLibrary == null) {
-                    Library newLibrary = new Library();
-                    newLibrary.setName(fileInfo.getIdentifier().getId());
-                    newLibrary.setVersion(fileInfo.getIdentifier().getVersion());
-                    newLibrary.setUrl(String.format("%s/Library/%s", (newLibrary.getName().equals("FHIRHelpers") ? "http://hl7.org/fhir" : canonicalBase), fileInfo.getIdentifier().getId()));
-                    newLibrary.setId(newLibrary.getName() + (versioned ? "-" + newLibrary.getVersion() : ""));
-                    setLibraryType(newLibrary);
-                    validateIdAlphaNumeric(newLibrary.getId());
-                    List<Attachment> attachments = new ArrayList<Attachment>();
-                    Attachment attachment = new Attachment();
-                    attachment.setContentType("application/elm+xml");
-                    attachment.setData(fileInfo.getElm());
-                    attachments.add(attachment);
-                    newLibrary.setContent(attachments);
-                    sourceLibraries.add(newLibrary);
-                }
-            }
-        }
+        ThreadUtils.executeTasks(getFileInfoTasks);
 
-        List<Library> resources = new ArrayList<Library>();
+        //build list of tasks via for loop:
+        ArrayList<Callable<Void>> resourcesTasks = new ArrayList<>();
+
+        CopyOnWriteArrayList<Library> resources = new CopyOnWriteArrayList<>();
         for (Library library : sourceLibraries) {
-            resources.add(refreshGeneratedContent(library));
+            resourcesTasks.add(() -> {
+                resources.add(refreshGeneratedContent(library));
+                //task requires return statement
+                return null;
+            });
         }
+        ThreadUtils.executeTasks(resourcesTasks);
         return resources;
     }
 
@@ -356,7 +375,7 @@ public class LibraryProcessor extends BaseProcessor {
         return null;
     }
 
-    public List<String> refreshLibraryContent(RefreshLibraryParameters params) {
-        return new ArrayList<String>();
+    public CopyOnWriteArrayList<String> refreshLibraryContent(RefreshLibraryParameters params) {
+        return new CopyOnWriteArrayList<String>();
     }
 }

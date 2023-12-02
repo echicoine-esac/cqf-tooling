@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.cqframework.cql.cql2elm.CqlTranslator;
 import org.hl7.elm.r1.IncludeDef;
@@ -28,7 +29,7 @@ import ca.uhn.fhir.context.FhirContext;
 
 public class LibraryGenerator extends BaseLibraryGenerator<Library, NarrativeProvider> {
 
-    private Map<String, IBaseResource> libraryMap = new HashMap<>();
+    private ConcurrentHashMap<String, IBaseResource> libraryMap = new ConcurrentHashMap<>();
 
     @SuppressWarnings("this-escape")
     public LibraryGenerator() {

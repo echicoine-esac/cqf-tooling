@@ -20,6 +20,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.commons.io.FileUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -84,7 +85,7 @@ public class RefreshIGOperationTest extends RefreshTest {
 
     @BeforeMethod
     public void setUp() throws Exception {
-        IOUtils.resourceDirectories = new ArrayList<String>();
+        IOUtils.resourceDirectories = new CopyOnWriteArrayList<String>();
         IOUtils.clearDevicePaths();
         System.setOut(new PrintStream(this.console));
         File dir  = new File("target" + separator + "refreshIG");

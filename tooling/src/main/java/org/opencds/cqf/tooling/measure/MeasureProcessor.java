@@ -9,6 +9,7 @@ import org.cqframework.cql.cql2elm.model.CompiledLibrary;
 import org.hl7.elm.r1.VersionedIdentifier;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r5.model.Measure;
+import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.measure.r4.R4MeasureProcessor;
 import org.opencds.cqf.tooling.measure.stu3.STU3MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshMeasureParameters;
@@ -24,9 +25,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 public class MeasureProcessor extends AbstractResourceProcessor {
     public static final String ResourcePrefix = "measure-";
-    protected List<Object> identifiers;
+    protected CopyOnWriteArrayList<Object> identifiers;
 
     public static String getId(String baseId) {
         return ResourcePrefix + baseId;
@@ -68,9 +74,9 @@ public class MeasureProcessor extends AbstractResourceProcessor {
         return contentList;
     }
 
-    protected List<Object> getIdentifiers() {
+    protected CopyOnWriteArrayList<Object> getIdentifiers() {
         if (identifiers == null) {
-            identifiers = new ArrayList<>();
+            identifiers = new CopyOnWriteArrayList<>();
         }
         return identifiers;
     }
@@ -88,10 +94,18 @@ public class MeasureProcessor extends AbstractResourceProcessor {
 
     private List<Measure> internalRefreshGeneratedContent(List<Measure> sourceMeasures) {
         // for each Measure, refresh the measure based on the primary measure library
-        List<Measure> resources = new ArrayList<>();
+        List<Measure> resources = new CopyOnWriteArrayList<>();
+
+        List<Callable<Void>> resourceRefreshTasks = new ArrayList<>();
         for (Measure measure : sourceMeasures) {
-            resources.add(refreshGeneratedContent(measure));
+            resourceRefreshTasks.add(() -> {
+                resources.add(refreshGeneratedContent(measure));
+                //task requires return statement
+                return null;
+            });
         }
+
+        ThreadUtils.executeTasks(resourceRefreshTasks);
         return resources;
     }
 

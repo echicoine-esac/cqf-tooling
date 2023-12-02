@@ -1,11 +1,9 @@
 package org.opencds.cqf.tooling.library.stu3;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.google.common.base.Strings;
 
@@ -29,17 +27,17 @@ public class STU3LibraryProcessor extends LibraryProcessor {
     /*
     Refresh all library resources in the given libraryPath
      */
-    protected List<String> refreshLibraries(String libraryPath, Boolean shouldApplySoftwareSystemStamp) {
+    protected CopyOnWriteArrayList<String> refreshLibraries(String libraryPath, Boolean shouldApplySoftwareSystemStamp) {
         return refreshLibraries(libraryPath, null, shouldApplySoftwareSystemStamp);
     }
     
     /*
     Refresh all library resources in the given libraryPath and write to the given outputDirectory
      */
-    protected List<String> refreshLibraries(String libraryPath, String libraryOutputDirectory, Boolean shouldApplySoftwareSystemStamp) {
+    protected CopyOnWriteArrayList<String> refreshLibraries(String libraryPath, String libraryOutputDirectory, Boolean shouldApplySoftwareSystemStamp) {
         File file = new File(libraryPath);
-        Map<String, String> fileMap = new HashMap<String, String>();
-        List<org.hl7.fhir.r5.model.Library> libraries = new ArrayList<>();
+        ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<String, String>();
+        CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> libraries = new CopyOnWriteArrayList<>();
         if (file.isDirectory()) {
             for (File libraryFile : file.listFiles()) {
                 if(IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
@@ -51,8 +49,8 @@ public class STU3LibraryProcessor extends LibraryProcessor {
             loadLibrary(fileMap, libraries, file);
         }
 
-        List<String> refreshedLibraryNames = new ArrayList<String>();
-        List<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
+        CopyOnWriteArrayList<String> refreshedLibraryNames = new CopyOnWriteArrayList<String>();
+        CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
         VersionConvertor_30_50 versionConvertor_30_50 = new VersionConvertor_30_50(new BaseAdvisor_30_50());
         for (org.hl7.fhir.r5.model.Library refreshedLibrary : refreshedLibraries) {
             String filePath = fileMap.get(refreshedLibrary.getId());
@@ -91,8 +89,8 @@ public class STU3LibraryProcessor extends LibraryProcessor {
     }
 
     private void cleanseRelatedArtifactReferences(Library library) {
-        List<String> unresolvableCodeSystems = Arrays.asList("http://loinc.org", "http://snomed.info/sct");
-        List<RelatedArtifact> relatedArtifacts = library.getRelatedArtifact();
+        CopyOnWriteArrayList<String> unresolvableCodeSystems = new CopyOnWriteArrayList<>(Arrays.asList("http://loinc.org", "http://snomed.info/sct"));
+        CopyOnWriteArrayList<RelatedArtifact> relatedArtifacts = new CopyOnWriteArrayList<>(library.getRelatedArtifact());
         relatedArtifacts.removeIf(ra -> ra.hasResource() && ra.getResource().hasReference() && unresolvableCodeSystems.contains(ra.getResource().getReference()));
 
         for (RelatedArtifact relatedArtifact : relatedArtifacts) {
@@ -118,7 +116,7 @@ public class STU3LibraryProcessor extends LibraryProcessor {
         }
     }
 
-    private void loadLibrary(Map<String, String> fileMap, List<org.hl7.fhir.r5.model.Library> libraries, File libraryFile) {
+    private void loadLibrary(ConcurrentHashMap<String, String> fileMap, CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> libraries, File libraryFile) {
         try {
             Resource resource = (Resource) IOUtils.readResource(libraryFile.getAbsolutePath(), fhirContext);
             VersionConvertor_30_50 versionConvertor_30_50 = new VersionConvertor_30_50(new BaseAdvisor_30_50());
@@ -131,7 +129,7 @@ public class STU3LibraryProcessor extends LibraryProcessor {
     }
 
     @Override
-    public List<String> refreshLibraryContent(RefreshLibraryParameters params) {
+    public CopyOnWriteArrayList<String> refreshLibraryContent(RefreshLibraryParameters params) {
         if (params.parentContext != null) {
             initialize(params.parentContext);
         }

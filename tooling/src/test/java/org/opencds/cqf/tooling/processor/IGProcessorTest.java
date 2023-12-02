@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.commons.io.FileUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -66,7 +67,7 @@ public class IGProcessorTest extends RefreshTest {
 
 	@BeforeMethod
 	public void setUp() throws Exception {
-		IOUtils.resourceDirectories = new ArrayList<>();
+		IOUtils.resourceDirectories = new CopyOnWriteArrayList<>();
 		IOUtils.clearDevicePaths();
 		System.setOut(new PrintStream(this.console));
 		File dir  = new File("target" + separator + "refreshIG");

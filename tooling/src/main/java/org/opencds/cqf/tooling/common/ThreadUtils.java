@@ -1,6 +1,5 @@
 package org.opencds.cqf.tooling.common;
 
-import org.opencds.cqf.tooling.utilities.LogUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -2,7 +2,7 @@ package org.opencds.cqf.tooling.processor;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.fhir.ucum.UcumEssenceService;
 import org.fhir.ucum.UcumException;
@@ -19,6 +19,7 @@ import org.hl7.fhir.utilities.IniFile;
 import org.hl7.fhir.utilities.TextFile;
 import org.hl7.fhir.utilities.Utilities;
 import org.hl7.fhir.utilities.VersionUtilities;
+import org.hl7.fhir.utilities.npm.NpmPackage;
 import org.opencds.cqf.tooling.exception.IGInitializationException;
 import org.opencds.cqf.tooling.npm.LibraryLoader;
 import org.opencds.cqf.tooling.npm.NpmPackageManager;
@@ -117,7 +118,7 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
         packageManager = new NpmPackageManager(sourceIg, this.fhirVersion);
 
         // Setup binary paths (cql source directories)
-        binaryPaths = IGUtils.extractBinaryPaths(rootDir, sourceIg);
+        binaryPaths = new CopyOnWriteArrayList<>(IGUtils.extractBinaryPaths(rootDir, sourceIg));
     }
 
     /*
@@ -136,13 +137,13 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
         initializeFromIg(rootDir, igPath, specifiedFhirVersion);
     }
 
-    private List<String> binaryPaths;
+    private CopyOnWriteArrayList<String> binaryPaths;
 
-    public List<String> getBinaryPaths() {
+    public CopyOnWriteArrayList<String> getBinaryPaths() {
         return binaryPaths;
     }
 
-    protected void setBinaryPaths(List<String> binaryPaths) {
+    protected void setBinaryPaths(CopyOnWriteArrayList<String> binaryPaths) {
         this.binaryPaths = binaryPaths;
     }
 
@@ -159,7 +160,11 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
             if (packageManager == null) {
                 throw new IllegalStateException("packageManager is null. It should be initialized at this point.");
             }
-            cqlProcessor = new CqlProcessor(packageManager.getNpmList(), binaryPaths, reader, this, ucumService,
+
+            final CopyOnWriteArrayList<NpmPackage> concurrentNpmPackageList = new CopyOnWriteArrayList<>(packageManager.getNpmList());
+            final CopyOnWriteArrayList<String> concurrentBinaryPathsList = new CopyOnWriteArrayList<>(binaryPaths);
+
+            cqlProcessor = new CqlProcessor(concurrentNpmPackageList, concurrentBinaryPathsList, reader, this, ucumService,
                     packageId, canonicalBase);
         }
 

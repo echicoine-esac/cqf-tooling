@@ -5,9 +5,11 @@ import java.io.FilenameFilter;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.cqframework.cql.cql2elm.CqlCompilerOptions;
@@ -33,6 +35,7 @@ import org.hl7.fhir.utilities.npm.NpmPackage;
 import org.hl7.fhir.utilities.validation.ValidationMessage;
 import org.hl7.fhir.utilities.validation.ValidationMessage.IssueSeverity;
 import org.hl7.fhir.utilities.validation.ValidationMessage.IssueType;
+import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.npm.ILibraryReader;
 import org.opencds.cqf.tooling.npm.NpmLibrarySourceProvider;
 import org.opencds.cqf.tooling.npm.NpmModelInfoProvider;
@@ -47,10 +50,10 @@ public class CqlProcessor {
         private VersionedIdentifier identifier;
         private byte[] elm;
         private byte[] jsonElm;
-        private List<ValidationMessage> errors = new ArrayList<>();
-        private List<RelatedArtifact> relatedArtifacts = new ArrayList<>();
-        private List<DataRequirement> dataRequirements = new ArrayList<>();
-        private List<ParameterDefinition> parameters = new ArrayList<>();
+        private CopyOnWriteArrayList<ValidationMessage> errors = new CopyOnWriteArrayList<>();
+        private CopyOnWriteArrayList<RelatedArtifact> relatedArtifacts = new CopyOnWriteArrayList<>();
+        private CopyOnWriteArrayList<DataRequirement> dataRequirements = new CopyOnWriteArrayList<>();
+        private CopyOnWriteArrayList<ParameterDefinition> parameters = new CopyOnWriteArrayList<>();
         public VersionedIdentifier getIdentifier() {
             return identifier;
         }
@@ -69,16 +72,16 @@ public class CqlProcessor {
         public void setJsonElm(byte[] jsonElm) {
             this.jsonElm = jsonElm;
         }
-        public List<ValidationMessage> getErrors() {
+        public CopyOnWriteArrayList<ValidationMessage> getErrors() {
             return errors;
         }
-        public List<RelatedArtifact> getRelatedArtifacts() {
+        public CopyOnWriteArrayList<RelatedArtifact> getRelatedArtifacts() {
             return relatedArtifacts;
         }
-        public List<DataRequirement> getDataRequirements() {
+        public CopyOnWriteArrayList<DataRequirement> getDataRequirements() {
             return dataRequirements;
         }
-        public List<ParameterDefinition> getParameters() {
+        public CopyOnWriteArrayList<ParameterDefinition> getParameters() {
             return parameters;
         }
     }
@@ -90,14 +93,14 @@ public class CqlProcessor {
      * library in the right order
      *
      */
-    private List<NpmPackage> packages;
+    private CopyOnWriteArrayList<NpmPackage> packages;
 
     /**
      * All the file paths cql files might be found in (absolute local file paths)
      *
      * will be at least one error
      */
-    private List<String> folders;
+    private CopyOnWriteArrayList<String> folders;
 
     /**
      * Version indepedent reader
@@ -138,7 +141,7 @@ public class CqlProcessor {
 
     private NamespaceInfo namespaceInfo;
 
-    public CqlProcessor(List<NpmPackage> packages, List<String> folders, ILibraryReader reader, ILoggingService logger, UcumService ucumService, String packageId, String canonicalBase) {
+    public CqlProcessor(CopyOnWriteArrayList<NpmPackage> packages, CopyOnWriteArrayList<String> folders, ILibraryReader reader, ILoggingService logger, UcumService ucumService, String packageId, String canonicalBase) {
         super();
         this.packages = packages;
         this.folders = folders;
@@ -162,12 +165,18 @@ public class CqlProcessor {
     public void execute() throws FHIRException {
         try {
             logger.logMessage("Translating CQL source");
-            fileMap = new HashMap<>();
+            fileMap = new ConcurrentHashMap<>();
 
             // foreach folder
+            List<Callable<Void>> foldersTasks = new ArrayList<>();
             for (String folder : folders) {
-                translateFolder(folder);
+                foldersTasks.add(() -> {
+                    translateFolder(folder);
+                    //task requires return statement
+                    return null;
+                });
             }
+            ThreadUtils.executeTasks(foldersTasks);
         }
         catch (Exception E) {
             logger.logDebugMessage(ILoggingService.LogCategory.PROGRESS, String.format("Errors occurred attempting to translate CQL content: %s", E.getMessage()));
@@ -214,7 +223,7 @@ public class CqlProcessor {
      * @return
      */
     public List<ValidationMessage> getGeneralErrors() {
-        List<ValidationMessage> result = new ArrayList<>();
+        List<ValidationMessage> result = new CopyOnWriteArrayList<>();
 
         if (fileMap != null) {
             for (Map.Entry<String, CqlSourceFileInformation> entry : fileMap.entrySet()) {
@@ -272,14 +281,21 @@ public class CqlProcessor {
 
         loadNamespaces(libraryManager);
 
-        // foreach *.cql file
-        boolean hadCqlFiles = false;
-        for (File file : new File(folder).listFiles(getCqlFilenameFilter())) {
-            hadCqlFiles = true;
-            translateFile(libraryManager, file, options.getCqlCompilerOptions());
+        File[] listFiles = new File(folder).listFiles(getCqlFilenameFilter());
+        boolean hasCqlFiles = listFiles!= null && listFiles.length > 0;
+        if (hasCqlFiles) {
+            List<Callable<Void>> translateFileTasks = new CopyOnWriteArrayList<>();
+            for (File file : listFiles) {
+                translateFileTasks.add(() -> {
+                    translateFile(libraryManager, file, options.getCqlCompilerOptions());
+                    //task requires return statement
+                    return null;
+                });
+            }
+            ThreadUtils.executeTasks(translateFileTasks);
         }
 
-        if (hadCqlFiles) {
+        if (hasCqlFiles) {
             if (cachedOptions == null) {
                 if (!hasMultipleBinaryPaths) {
                     cachedOptions = options;

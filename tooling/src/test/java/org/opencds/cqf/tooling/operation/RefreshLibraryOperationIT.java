@@ -4,6 +4,7 @@ import static org.testng.Assert.assertTrue;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.commons.io.FileUtils;
 import org.opencds.cqf.tooling.RefreshTest;
@@ -21,7 +22,7 @@ public class RefreshLibraryOperationIT extends RefreshTest {
 
     @BeforeMethod
     public void setUp() throws Exception {
-        IOUtils.resourceDirectories = new ArrayList<String>();
+        IOUtils.resourceDirectories = new CopyOnWriteArrayList<String>();
         IOUtils.clearDevicePaths();
         File dir  = new File("target" + separator + "refreshLibraries");
         if (dir.exists()) {

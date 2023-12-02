@@ -3,6 +3,7 @@ package org.opencds.cqf.tooling.measure.r4;
 import org.hl7.fhir.convertors.advisors.impl.BaseAdvisor_40_50;
 import org.hl7.fhir.convertors.conv40_50.VersionConvertor_40_50;
 import org.hl7.fhir.r4.formats.FormatUtilities;
+import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.common.r4.CqfmSoftwareSystemHelper;
 import org.opencds.cqf.tooling.measure.MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshMeasureParameters;
@@ -10,6 +11,9 @@ import org.opencds.cqf.tooling.utilities.IOUtils;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class R4MeasureProcessor extends MeasureProcessor {
 
@@ -41,69 +45,98 @@ public class R4MeasureProcessor extends MeasureProcessor {
     */
     protected List<String> refreshMeasures(String measurePath, String measureOutputDirectory, IOUtils.Encoding encoding) {
         File file = measurePath != null ? new File(measurePath) : null;
-        Map<String, String> fileMap = new HashMap<String, String>();
-        List<org.hl7.fhir.r5.model.Measure> measures = new ArrayList<>();
+
+        Map<String, String> fileMap = new ConcurrentHashMap<String, String>();
+        List<org.hl7.fhir.r5.model.Measure> measures = new CopyOnWriteArrayList<>();
 
         if (file == null || !file.exists()) {
+
+            //build list of tasks via for loop:
+            List<Callable<Void>> loadMeasureTasks = new ArrayList<>();
             for (String path : IOUtils.getMeasurePaths(this.fhirContext)) {
-                loadMeasure(fileMap, measures, new File(path));
+                loadMeasureTasks.add(() -> {
+                    loadMeasure(fileMap, measures, new File(path));
+                    //task requires return statement
+                    return null;
+                });
             }
+            ThreadUtils.executeTasks(loadMeasureTasks);
         }
         else if (file.isDirectory()) {
+            //build list of tasks via for loop:
+            List<Callable<Void>> loadXmlOrJsonMeasureTasks = new ArrayList<>();
+
             for (File libraryFile : file.listFiles()) {
-                if(IOUtils.isXMLOrJson(measurePath, libraryFile.getName())) {
-                    loadMeasure(fileMap, measures, libraryFile);
-                }
+                loadXmlOrJsonMeasureTasks.add(() -> {
+                    if(IOUtils.isXMLOrJson(measurePath, libraryFile.getName())) {
+                        loadMeasure(fileMap, measures, libraryFile);
+                    }
+                    //task requires return statement
+                    return null;
+                });
             }
+
+            ThreadUtils.executeTasks(loadXmlOrJsonMeasureTasks);
         }
         else {
             loadMeasure(fileMap, measures, file);
         }
 
-        List<String> refreshedMeasureNames = new ArrayList<String>();
+        List<String> refreshedMeasureNames = new CopyOnWriteArrayList<>();
         List<org.hl7.fhir.r5.model.Measure> refreshedMeasures = super.refreshGeneratedContent(measures);
         VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
+
+        //build list of tasks via for loop:
+//        List<Callable<Void>> refreshedMeasureTasks = new ArrayList<>();
+
         for (org.hl7.fhir.r5.model.Measure refreshedMeasure : refreshedMeasures) {
-            org.hl7.fhir.r4.model.Measure measure = (org.hl7.fhir.r4.model.Measure) versionConvertor_40_50.convertResource(refreshedMeasure);
-            if (measure.hasIdentifier() && !measure.getIdentifier().isEmpty()) {
-                this.getIdentifiers().addAll(measure.getIdentifier());
-            }
-            String filePath = null;
-            IOUtils.Encoding fileEncoding = null;
-            if (fileMap.containsKey(refreshedMeasure.getId()))
-            {
-                filePath = fileMap.get(refreshedMeasure.getId());
-                fileEncoding = IOUtils.getEncoding(filePath);
-            } else {
-                filePath = getMeasurePath(measurePath);
-                fileEncoding = encoding;
-            }
-            cqfmHelper.ensureCQFToolingExtensionAndDevice(measure, fhirContext);
-            // Issue 96
-            // Passing the includeVersion here to handle not using the version number in the filename
-            if (new File(filePath).exists()) {
-                // TODO: This prevents mangled names from being output
-                // It would be nice for the tooling to generate library shells, we have enough information to,
-                // but the tooling gets confused about the ID and the filename and what gets written is garbage
-                String outputPath = filePath;
-                if (measureOutputDirectory != null) {
-                    File measureDirectory = new File(measureOutputDirectory);
-                    if (!measureDirectory.exists()) {
-                        //TODO: add logger and log non existant directory for writing
-                    } else {
-                        outputPath = measureDirectory.getAbsolutePath();
-                    }
+//            refreshedMeasureTasks.add(() -> {
+                org.hl7.fhir.r4.model.Measure measure = (org.hl7.fhir.r4.model.Measure) versionConvertor_40_50.convertResource(refreshedMeasure);
+                if (measure.hasIdentifier() && !measure.getIdentifier().isEmpty()) {
+                    this.getIdentifiers().addAll(measure.getIdentifier());
                 }
-                IOUtils.writeResource(measure, outputPath, fileEncoding, fhirContext, this.versioned, true);
-                String refreshedMeasureName;
-                if (this.versioned && refreshedMeasure.getVersion() != null) {
-                    refreshedMeasureName = refreshedMeasure.getName() + "-" + refreshedMeasure.getVersion();
+                String filePath = null;
+                IOUtils.Encoding fileEncoding = null;
+                if (fileMap.containsKey(refreshedMeasure.getId()))
+                {
+                    filePath = fileMap.get(refreshedMeasure.getId());
+                    fileEncoding = IOUtils.getEncoding(filePath);
                 } else {
-                    refreshedMeasureName = refreshedMeasure.getName();
+                    filePath = getMeasurePath(measurePath);
+                    fileEncoding = encoding;
                 }
-                refreshedMeasureNames.add(refreshedMeasureName);
-            }
-        }
+                cqfmHelper.ensureCQFToolingExtensionAndDevice(measure, fhirContext);
+                // Issue 96
+                // Passing the includeVersion here to handle not using the version number in the filename
+                if (new File(filePath).exists()) {
+                    // TODO: This prevents mangled names from being output
+                    // It would be nice for the tooling to generate library shells, we have enough information to,
+                    // but the tooling gets confused about the ID and the filename and what gets written is garbage
+                    String outputPath = filePath;
+                    if (measureOutputDirectory != null) {
+                        File measureDirectory = new File(measureOutputDirectory);
+                        if (!measureDirectory.exists()) {
+                            //TODO: add logger and log non existant directory for writing
+                        } else {
+                            outputPath = measureDirectory.getAbsolutePath();
+                        }
+                    }
+                    IOUtils.writeResource(measure, outputPath, fileEncoding, fhirContext, this.versioned, true);
+                    String refreshedMeasureName;
+                    if (this.versioned && refreshedMeasure.getVersion() != null) {
+                        refreshedMeasureName = refreshedMeasure.getName() + "-" + refreshedMeasure.getVersion();
+                    } else {
+                        refreshedMeasureName = refreshedMeasure.getName();
+                    }
+                    refreshedMeasureNames.add(refreshedMeasureName);
+                }
+
+//                //task requires return statement
+//                return null;
+//            });
+        }//end for
+
+//        ThreadUtils.executeTasks(refreshedMeasureTasks);
 
         return refreshedMeasureNames;
     }

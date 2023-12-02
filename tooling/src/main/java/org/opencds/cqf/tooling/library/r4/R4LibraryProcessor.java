@@ -2,9 +2,9 @@ package org.opencds.cqf.tooling.library.r4;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.google.common.base.Strings;
 
@@ -13,6 +13,7 @@ import org.hl7.fhir.convertors.conv40_50.VersionConvertor_40_50;
 import org.hl7.fhir.r4.formats.FormatUtilities;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.Resource;
+import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.common.r4.CqfmSoftwareSystemHelper;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshLibraryParameters;
@@ -40,7 +41,7 @@ public class R4LibraryProcessor extends LibraryProcessor {
         If the path is not specified, or is not a known directory, process
         all known library resources
     */
-    protected List<String> refreshLibraries(String libraryPath, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
+    protected CopyOnWriteArrayList<String> refreshLibraries(String libraryPath, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
         return refreshLibraries(libraryPath, null, encoding, shouldApplySoftwareSystemStamp);
     }
 
@@ -50,78 +51,105 @@ public class R4LibraryProcessor extends LibraryProcessor {
         all known library resources, if no libraryOutputDirectory is specified,
         overwrite all known library resources
     */
-    protected List<String> refreshLibraries(String libraryPath, String libraryOutputDirectory, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
+    protected CopyOnWriteArrayList<String> refreshLibraries(String libraryPath, String libraryOutputDirectory, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
         File file = libraryPath != null ? new File(libraryPath) : null;
-        Map<String, String> fileMap = new HashMap<String, String>();
-        List<org.hl7.fhir.r5.model.Library> libraries = new ArrayList<>();
+
+        ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<>();
+        CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> libraries = new CopyOnWriteArrayList<>();
 
         if (file == null || !file.exists()) {
+            ArrayList<Callable<Void>> tasks = new ArrayList<>();
+
             for (String path : IOUtils.getLibraryPaths(this.fhirContext)) {
-                loadLibrary(fileMap, libraries, new File(path));
+                tasks.add(() -> {
+                    loadLibrary(fileMap, libraries, new File(path));
+
+                    //task requires return statement
+                    return null;
+                });
             }
+            ThreadUtils.executeTasks(tasks);
         }
         else if (file.isDirectory()) {
+            ArrayList<Callable<Void>> tasks = new ArrayList<>();
+
             for (File libraryFile : file.listFiles()) {
-                if(IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
-                    loadLibrary(fileMap, libraries, libraryFile);
-                }
+
+                tasks.add(() -> {
+
+                    if(IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
+                        loadLibrary(fileMap, libraries, libraryFile);
+                    }
+
+                    //task requires return statement
+                    return null;
+                });
             }
+
+            ThreadUtils.executeTasks(tasks);
         }
         else {
             loadLibrary(fileMap, libraries, file);
         }
 
-        List<String> refreshedLibraryNames = new ArrayList<String>();
-        List<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
-        VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
-        for (org.hl7.fhir.r5.model.Library refreshedLibrary : refreshedLibraries) {
-            Library library = (Library) versionConvertor_40_50.convertResource(refreshedLibrary);
-            String filePath = null;
-            Encoding fileEncoding = null;            
-            if (fileMap.containsKey(refreshedLibrary.getId()))
-            {
-                filePath = fileMap.get(refreshedLibrary.getId());
-                fileEncoding = IOUtils.getEncoding(filePath);
-            } else {
-                filePath = getLibraryPath(libraryPath);
-                fileEncoding = encoding;
-            }
-            if (shouldApplySoftwareSystemStamp) {
-                cqfmHelper.ensureCQFToolingExtensionAndDevice(library, fhirContext);
-            }
-            // Issue 96
-            // Passing the includeVersion here to handle not using the version number in the filename
-            if (new File(filePath).exists()) {
-                // TODO: This prevents mangled names from being output
-                // It would be nice for the tooling to generate library shells, we have enough information to,
-                // but the tooling gets confused about the ID and the filename and what gets written is garbage
-                //TODO: needs outputPathParameter
-                String outputPath = filePath;
-                if (libraryOutputDirectory != null) {
-                    File libraryDirectory = new File(libraryOutputDirectory);
-                    if (!libraryDirectory.exists()) {
-                        //TODO: add logger and log non existant directory for writing
-                    } else {
-                        outputPath = libraryDirectory.getAbsolutePath();
-                    }
-                }
-                IOUtils.writeResource(library, outputPath, fileEncoding, fhirContext, this.versioned, true);
-                IOUtils.updateCachedResource(library, outputPath);
+        CopyOnWriteArrayList<String> refreshedLibraryNames = new CopyOnWriteArrayList<>();
 
-                String refreshedLibraryName;
-                if (this.versioned && refreshedLibrary.getVersion() != null) {
-                    refreshedLibraryName = refreshedLibrary.getName() + "-" + refreshedLibrary.getVersion();
+        CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
+
+        VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
+
+
+        for (org.hl7.fhir.r5.model.Library refreshedLibrary : refreshedLibraries) {
+
+
+                Library library = (Library) versionConvertor_40_50.convertResource(refreshedLibrary);
+                String filePath = null;
+                Encoding fileEncoding = null;
+                if (fileMap.containsKey(refreshedLibrary.getId()))
+                {
+                    filePath = fileMap.get(refreshedLibrary.getId());
+                    fileEncoding = IOUtils.getEncoding(filePath);
                 } else {
-                    refreshedLibraryName = refreshedLibrary.getName();
+                    filePath = getLibraryPath(libraryPath);
+                    fileEncoding = encoding;
                 }
-                refreshedLibraryNames.add(refreshedLibraryName);
-            }
+                if (shouldApplySoftwareSystemStamp) {
+                    cqfmHelper.ensureCQFToolingExtensionAndDevice(library, fhirContext);
+                }
+                // Issue 96
+                // Passing the includeVersion here to handle not using the version number in the filename
+                if (new File(filePath).exists()) {
+                    // TODO: This prevents mangled names from being output
+                    // It would be nice for the tooling to generate library shells, we have enough information to,
+                    // but the tooling gets confused about the ID and the filename and what gets written is garbage
+                    //TODO: needs outputPathParameter
+                    String outputPath = filePath;
+                    if (libraryOutputDirectory != null) {
+                        File libraryDirectory = new File(libraryOutputDirectory);
+                        if (!libraryDirectory.exists()) {
+                            //TODO: add logger and log non existant directory for writing
+                        } else {
+                            outputPath = libraryDirectory.getAbsolutePath();
+                        }
+                    }
+                    IOUtils.writeResource(library, outputPath, fileEncoding, fhirContext, this.versioned, true);
+                    IOUtils.updateCachedResource(library, outputPath);
+
+                    String refreshedLibraryName;
+                    if (this.versioned && refreshedLibrary.getVersion() != null) {
+                        refreshedLibraryName = refreshedLibrary.getName() + "-" + refreshedLibrary.getVersion();
+                    } else {
+                        refreshedLibraryName = refreshedLibrary.getName();
+                    }
+                    refreshedLibraryNames.add(refreshedLibraryName);
+                }
+
         }
 
         return refreshedLibraryNames;
     }
 
-    private void loadLibrary(Map<String, String> fileMap, List<org.hl7.fhir.r5.model.Library> libraries, File libraryFile) {
+    private void loadLibrary(ConcurrentHashMap<String, String> fileMap, CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> libraries, File libraryFile) {
         try {
             Resource resource = FormatUtilities.loadFile(libraryFile.getAbsolutePath());
             VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
@@ -134,7 +162,7 @@ public class R4LibraryProcessor extends LibraryProcessor {
     }
 
     @Override
-    public List<String> refreshLibraryContent(RefreshLibraryParameters params) {
+    public CopyOnWriteArrayList<String> refreshLibraryContent(RefreshLibraryParameters params) {
         if (params.parentContext != null) {
             initialize(params.parentContext);
         }

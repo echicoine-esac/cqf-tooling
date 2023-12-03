@@ -119,9 +119,10 @@ public class CqlProcessor {
 
     /**
      * Map of translated files by fully qualified file name.
+     * ConcurrentHashMap for thread safe access
      * Populated during execute
      */
-    private Map<String, CqlSourceFileInformation> fileMap;
+    private ConcurrentHashMap<String, CqlSourceFileInformation> fileMap;
 
     /**
      * The packageId for the implementation guide, used to construct a NamespaceInfo for the CQL translator
@@ -164,7 +165,7 @@ public class CqlProcessor {
      */
     public void execute() throws FHIRException {
         try {
-            logger.logMessage("Translating CQL source");
+            System.out.println("\r\n[Translating CQL source files]\r\n");
             fileMap = new ConcurrentHashMap<>();
 
             // foreach folder
@@ -358,6 +359,21 @@ public class CqlProcessor {
         }
     }
 
+    public static List<String> listTranslatorErrors(CqlTranslator translator) {
+        List<String> errors = new ArrayList<>(translator.getErrors().size());
+
+        for (CqlCompilerException error : translator.getErrors()) {
+            errors.add((error.getLocator() == null) ? "[n/a]" : String.format("[%d:%d, %d:%d] ",
+                    error.getLocator().getStartLine(),
+                    error.getLocator().getStartChar(),
+                    error.getLocator().getEndLine(),
+                    error.getLocator().getEndChar())
+                    + error.getMessage());
+        }
+
+        return errors;
+    }
+
     private void translateFile(LibraryManager libraryManager, File file, CqlCompilerOptions options) {
         logger.logMessage(String.format("Translating CQL source in file %s", file.toString()));
         CqlSourceFileInformation result = new CqlSourceFileInformation();
@@ -380,11 +396,17 @@ public class CqlProcessor {
             if (!translator.getErrors().isEmpty()) {
                 result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(),
                         String.format("CQL Processing failed with (%d) errors.", translator.getErrors().size()), IssueSeverity.ERROR));
-                logger.logMessage(String.format("Translation failed with (%d) errors; see the error log for more information.", translator.getErrors().size()));
 
-                for (CqlCompilerException error : translator.getErrors()) {
-                    logger.logMessage(String.format("Error: %s", error.getMessage()));
-                }
+//                logger.logMessage(String.format("Translation failed with (%d) errors; see the error log for more information.", translator.getErrors().size()));
+
+
+                //clean reporting of errors with file name:
+                System.out.println(String.format("\r\nCQL Processing of " + file.getName() + " failed with " + translator.getErrors().size() + " Error(s): %s",
+                        listTranslatorErrors(translator).stream()
+                                .map(error -> "\n\t" + error)
+                                .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
+                                .toString()));
+
             }
             else {
                 try {

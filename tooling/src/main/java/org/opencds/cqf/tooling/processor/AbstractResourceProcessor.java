@@ -28,6 +28,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Subclasses must implement specific methods for gathering, processing, and persisting resources.
  */
 public abstract class AbstractResourceProcessor extends BaseProcessor {
+    public static final String NEWLINE_INDENT2 = "\n\t\t";
+    public static final String NEWLINE_INDENT = "\r\n\t";
+    public static final String NEWLINE = "\r\n";
     /**
      * The logger for logging messages specific to the implementing class.
      */
@@ -95,16 +98,16 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
                                 Boolean includeTerminology, Boolean includePatientScenarios, Boolean includeVersion, Boolean addBundleTimestamp,
                                 FhirContext fhirContext, String fhirUri, IOUtils.Encoding encoding) {
 
-        Map<String, IBaseResource> resourcesMap = getResources(fhirContext);
-        List<String> bundledResources = new CopyOnWriteArrayList<>();
+        final Map<String, IBaseResource> resourcesMap = getResources(fhirContext);
+        final List<String> bundledResources = new CopyOnWriteArrayList<>();
 
         //for keeping track of progress:
-        List<String> processedResources = new CopyOnWriteArrayList<>();
+        final List<String> processedResources = new CopyOnWriteArrayList<>();
 
         //for keeping track of failed reasons:
-        Map<String, String> failedExceptionMessages = new ConcurrentHashMap<>();
+        final Map<String, String> failedExceptionMessages = new ConcurrentHashMap<>();
 
-        Map<String, Set<String>> translatorWarningMessages = new ConcurrentHashMap<>();
+        final Map<String, Set<String>> translatorWarningMessages = new ConcurrentHashMap<>();
 
         int totalResources = resourcesMap.size();
 
@@ -278,9 +281,9 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
         }
 
 
-        StringBuilder message = new StringBuilder("\r\n" + bundledResources.size() + " " + getResourceProcessorType() + "(s) successfully bundled:");
+        StringBuilder message = new StringBuilder(NEWLINE + bundledResources.size() + " " + getResourceProcessorType() + "(s) successfully bundled:");
         for (String bundledResource : bundledResources) {
-            message.append("\r\n     ").append(bundledResource).append(" BUNDLED");
+            message.append(NEWLINE_INDENT).append(bundledResource).append(" BUNDLED");
         }
 
         List<String> resourcePathLibraryNames = new ArrayList<>(getPaths(fhirContext));
@@ -290,28 +293,28 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
 
         resourcePathLibraryNames.removeAll(bundledResources);
         resourcePathLibraryNames.retainAll(refreshedLibraryNames);
-        message.append("\r\n").append(resourcePathLibraryNames.size()).append(" ").append(getResourceProcessorType()).append("(s) refreshed, but not bundled (due to issues):");
+        message.append(NEWLINE).append(resourcePathLibraryNames.size()).append(" ").append(getResourceProcessorType()).append("(s) refreshed, but not bundled (due to issues):");
         for (String notBundled : resourcePathLibraryNames) {
-            message.append("\r\n     ").append(notBundled).append(" REFRESHED");
+            message.append(NEWLINE_INDENT).append(notBundled).append(" REFRESHED");
         }
 
         //attempt to give some kind of informational message:
         failedResources.removeAll(bundledResources);
         failedResources.removeAll(resourcePathLibraryNames);
-        message.append("\r\n").append(failedResources.size()).append(" ").append(getResourceProcessorType()).append("(s) failed refresh:");
+        message.append(NEWLINE).append(failedResources.size()).append(" ").append(getResourceProcessorType()).append("(s) failed refresh:");
         for (String failed : failedResources) {
             if (failedExceptionMessages.containsKey(failed)) {
-                message.append("\r\n     ").append(failed).append(" FAILED: ").append(failedExceptionMessages.get(failed));
+                message.append(NEWLINE_INDENT).append(failed).append(" FAILED: ").append(failedExceptionMessages.get(failed));
             } else {
-                message.append("\r\n     ").append(failed).append(" FAILED");
+                message.append(NEWLINE_INDENT).append(failed).append(" FAILED");
             }
         }
 
         //Exceptions stemming from IOUtils.translate that did not prevent process from completing for file:
         if (!translatorWarningMessages.isEmpty()) {
-            message.append("\r\n").append(translatorWarningMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered warnings:");
+            message.append(NEWLINE).append(translatorWarningMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered warnings:");
             for (String library : translatorWarningMessages.keySet()) {
-                message.append("\r\n     ").append(library).append(" WARNING: ").append(translatorWarningMessages.get(library));
+                message.append(NEWLINE_INDENT).append(library).append(":" + NEWLINE_INDENT2).append(String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages.get(library))));
             }
         }
 

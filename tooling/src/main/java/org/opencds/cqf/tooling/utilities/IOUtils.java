@@ -17,6 +17,7 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.utilities.Utilities;
 import org.opencds.cqf.tooling.cql.exception.CQLTranslatorException;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
+import org.opencds.cqf.tooling.processor.CqlProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -584,25 +585,13 @@ public class IOUtils {
             translator = CqlTranslator.fromFile(cqlFile, libraryManager);
 
             if (!translator.getErrors().isEmpty()) {
-                throw new CQLTranslatorException(listTranslatorErrors(translator));
+                throw new CQLTranslatorException(CqlProcessor.listTranslatorErrors(translator));
             }
             cachedTranslator.put(cqlContentPath, translator);
             return translator;
         } catch (IOException e) {
             throw new CQLTranslatorException(e);
         }
-    }
-
-    private static ArrayList<String> listTranslatorErrors(CqlTranslator translator) {
-        ArrayList<String> errors = new ArrayList<>();
-        for (CqlCompilerException error : translator.getErrors()) {
-            TrackBack tb = error.getLocator();
-            String lines = tb == null ? "[n/a]" : String.format("[%d:%d, %d:%d]",
-                    tb.getStartLine(), tb.getStartChar(), tb.getEndLine(), tb.getEndChar());
-            //System.err.printf("%s %s%n", lines, error.getMessage());
-            errors.add(lines + error.getMessage());
-        }
-        return errors;
     }
 
     public static String getCqlString(String cqlContentPath) {

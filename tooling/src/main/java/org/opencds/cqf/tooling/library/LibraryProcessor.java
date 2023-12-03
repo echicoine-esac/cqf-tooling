@@ -73,7 +73,9 @@ public class LibraryProcessor extends BaseProcessor {
     }
 
     public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryPath, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
-        System.out.println("Refreshing libraries...");
+
+        System.out.println("\r\n[Refreshing Libraries]\r\n");
+
         // ArrayList<String> refreshedLibraryNames = new ArrayList<String>();
 
         LibraryProcessor libraryProcessor;
@@ -169,7 +171,7 @@ public class LibraryProcessor extends BaseProcessor {
                 });
             }
         } catch (Exception e) {
-            logger.error(path, e);
+            logger.error("Exception in bundleLibraryDependenciesTasks for + " + path, e);
             //purposely break addAll:
             return null;
         }

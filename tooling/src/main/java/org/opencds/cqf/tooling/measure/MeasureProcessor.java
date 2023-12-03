@@ -15,6 +15,7 @@ import org.opencds.cqf.tooling.measure.stu3.STU3MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshMeasureParameters;
 import org.opencds.cqf.tooling.processor.AbstractResourceProcessor;
 import org.opencds.cqf.tooling.processor.BaseProcessor;
+import org.opencds.cqf.tooling.processor.CqlProcessor;
 import org.opencds.cqf.tooling.processor.IGProcessor;
 import org.opencds.cqf.tooling.utilities.*;
 import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
@@ -43,7 +44,7 @@ public class MeasureProcessor extends AbstractResourceProcessor {
 
     public List<String> refreshIgMeasureContent(BaseProcessor parentContext, Encoding outputEncoding, String measureOutputDirectory, Boolean versioned, FhirContext fhirContext, String measureToRefreshPath, Boolean shouldApplySoftwareSystemStamp) {
 
-        logger.info("Refreshing measures...");
+        System.out.println("\r\n[Refreshing Measures]\r\n");
 
         MeasureProcessor measureProcessor;
         switch (fhirContext.getVersion().getVersion()) {
@@ -121,12 +122,15 @@ public class MeasureProcessor extends AbstractResourceProcessor {
             CompiledLibrary CompiledLibrary = libraryManager.resolveLibrary(primaryLibraryIdentifier, errors);
             boolean hasErrors = false;
             if (!errors.isEmpty()) {
+                StringBuilder errorMessage = new StringBuilder();
                 for (CqlCompilerException e : errors) {
+                    errorMessage.append("\n\t").append(e.getMessage());
                     if (e.getSeverity() == CqlCompilerException.ErrorSeverity.Error) {
                         hasErrors = true;
                     }
-                    logMessage(e.getMessage());
                 }
+                System.out.println(String.format("\r\nCQL Processing of %s failed with %d Error(s): %s",
+                        measure.getName(), errors.size(), errorMessage.toString()));
             }
             if (!hasErrors) {
                 return processor.refreshMeasure(measure, libraryManager, CompiledLibrary, cqlTranslatorOptions.getCqlCompilerOptions());

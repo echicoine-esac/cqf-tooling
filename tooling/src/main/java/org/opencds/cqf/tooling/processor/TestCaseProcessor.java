@@ -33,7 +33,8 @@ public class TestCaseProcessor
 
     public void refreshTestCases(String path, IOUtils.Encoding encoding, FhirContext fhirContext, @Nullable List<String> refreshedResourcesNames)
     {
-        logger.info("Refreshing tests");
+        System.out.println("\r\n[Refreshing Tests]\r\n");
+
         List<String> resourceTypeTestGroups = IOUtils.getDirectoryPaths(path, false);
         IFhirVersion version = fhirContext.getVersion();
 

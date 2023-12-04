@@ -107,7 +107,7 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
         //for keeping track of failed reasons:
         final Map<String, String> failedExceptionMessages = new ConcurrentHashMap<>();
 
-        final Map<String, Set<String>> translatorWarningMessages = new ConcurrentHashMap<>();
+        final Map<String, Set<String>> cqlTranslatorErrorMessages = new ConcurrentHashMap<>();
 
         int totalResources = resourcesMap.size();
 
@@ -192,11 +192,11 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
                             try {
                                 ValueSetsProcessor.bundleValueSets(cqlLibrarySourcePath, igPath, fhirContext, resources, encoding, includeDependencies, includeVersion);
                             }catch (CQLTranslatorException warn){
-                                if (translatorWarningMessages.containsKey(primaryLibraryName)){
-                                    Set<String> existingMessages = translatorWarningMessages.get(primaryLibraryName);
+                                if (cqlTranslatorErrorMessages.containsKey(primaryLibraryName)){
+                                    Set<String> existingMessages = cqlTranslatorErrorMessages.get(primaryLibraryName);
                                     existingMessages.addAll(warn.getErrors());
                                 }else{
-                                    translatorWarningMessages.put(primaryLibraryName, warn.getErrors());
+                                    cqlTranslatorErrorMessages.put(primaryLibraryName, warn.getErrors());
                                 }
                             }
                         }
@@ -231,7 +231,7 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
 
                             String possibleBundleTestMessage = bundleFiles(igPath, bundleDestPath, resourceName, binaryPaths, resourceSourcePath,
                                     primaryLibrarySourcePath, fhirContext, encoding, includeTerminology, includeDependencies, includePatientScenarios,
-                                    includeVersion, addBundleTimestamp, translatorWarningMessages);
+                                    includeVersion, addBundleTimestamp, cqlTranslatorErrorMessages);
 
                             //Check for test files in bundleDestPath + "-files", loop through if exists,
                             // find all files that start with "tests-", post to fhir server following same folder structure:
@@ -311,10 +311,10 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
         }
 
         //Exceptions stemming from IOUtils.translate that did not prevent process from completing for file:
-        if (!translatorWarningMessages.isEmpty()) {
-            message.append(NEWLINE).append(translatorWarningMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered warnings:");
-            for (String library : translatorWarningMessages.keySet()) {
-                Set<String> translatorWarningMessagesSet = translatorWarningMessages.get(library);
+        if (!cqlTranslatorErrorMessages.isEmpty()) {
+            message.append(NEWLINE).append(cqlTranslatorErrorMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered CQL translator errors:");
+            for (String library : cqlTranslatorErrorMessages.keySet()) {
+                Set<String> translatorWarningMessagesSet = cqlTranslatorErrorMessages.get(library);
 
                 message.append(NEWLINE_INDENT).append("CQL Processing of ").append(library)
                         .append(" failed with ").append(translatorWarningMessagesSet.size())

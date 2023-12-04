@@ -3,6 +3,7 @@ package org.opencds.cqf.tooling.library;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
@@ -64,11 +65,11 @@ public class LibraryProcessor extends BaseProcessor {
         }
     }
 
-    public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
+    public List<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
         return refreshIgLibraryContent(parentContext, outputEncoding, null, null, versioned, fhirContext, shouldApplySoftwareSystemStamp);
     }
 
-    public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
+    public List<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
         return refreshIgLibraryContent(parentContext, outputEncoding, null, libraryOutputDirectory, versioned, fhirContext, shouldApplySoftwareSystemStamp);
     }
 
@@ -87,7 +88,7 @@ public class LibraryProcessor extends BaseProcessor {
      * @return A thread-safe list of strings containing the names of the refreshed libraries.
      * @throws IllegalArgumentException if an unknown FHIR version is encountered.
      */
-    public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryPath, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
+    public List<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryPath, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
 
         System.out.println("\r\n[Refreshing Libraries]\r\n");
 
@@ -293,12 +294,12 @@ public class LibraryProcessor extends BaseProcessor {
         optionsParameters.addParameter("verifyOnly", compilerOptions.getVerifyOnly());
     }
 
-    protected CopyOnWriteArrayList<Library> refreshGeneratedContent(CopyOnWriteArrayList<Library> sourceLibraries) {
+    protected List<Library> refreshGeneratedContent(List<Library> sourceLibraries) {
         return internalRefreshGeneratedContent(sourceLibraries);
     }
 
-    public CopyOnWriteArrayList<Library> refreshGeneratedContent(String cqlDirectoryPath, String fhirVersion) {
-        CopyOnWriteArrayList<String> result = new CopyOnWriteArrayList<String>();
+    public List<Library> refreshGeneratedContent(String cqlDirectoryPath, String fhirVersion) {
+        List<String> result = new ArrayList<String>();
         File input = new File(cqlDirectoryPath);
         if (input.exists() && input.isDirectory()) {
             result.add(input.getAbsolutePath());
@@ -306,7 +307,7 @@ public class LibraryProcessor extends BaseProcessor {
         setBinaryPaths(result);
 
         //multithreaded:
-        CopyOnWriteArrayList<Library> libraries = new CopyOnWriteArrayList<>();
+        List<Library> libraries = new ArrayList<>();
         return internalRefreshGeneratedContent(libraries);
     }
 
@@ -316,7 +317,7 @@ public class LibraryProcessor extends BaseProcessor {
                         .setSystem("http://terminology.hl7.org/CodeSystem/library-type")));
     }
 
-    private CopyOnWriteArrayList<Library> internalRefreshGeneratedContent(CopyOnWriteArrayList<Library> sourceLibraries) {
+    private List<Library> internalRefreshGeneratedContent(List<Library> sourceLibraries) {
         getCqlProcessor().execute();
 
         //build list of tasks via for loop:
@@ -390,7 +391,7 @@ public class LibraryProcessor extends BaseProcessor {
         return null;
     }
 
-    public CopyOnWriteArrayList<String> refreshLibraryContent(RefreshLibraryParameters params) {
-        return new CopyOnWriteArrayList<String>();
+    public List<String> refreshLibraryContent(RefreshLibraryParameters params) {
+        return new ArrayList<String>();
     }
 }

@@ -2,6 +2,7 @@ package org.opencds.cqf.tooling.library.r4;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -39,7 +40,7 @@ public class R4LibraryProcessor extends LibraryProcessor {
         If the path is not specified, or is not a known directory, process
         all known library resources
     */
-    protected CopyOnWriteArrayList<String> refreshLibraries(String libraryPath, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
+    protected List<String> refreshLibraries(String libraryPath, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
         return refreshLibraries(libraryPath, null, encoding, shouldApplySoftwareSystemStamp);
     }
 
@@ -49,7 +50,7 @@ public class R4LibraryProcessor extends LibraryProcessor {
         all known library resources, if no libraryOutputDirectory is specified,
         overwrite all known library resources
     */
-    protected CopyOnWriteArrayList<String> refreshLibraries(String libraryPath, String libraryOutputDirectory, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
+    protected List<String> refreshLibraries(String libraryPath, String libraryOutputDirectory, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
         File file = libraryPath != null ? new File(libraryPath) : null;
 
         ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<>();
@@ -90,9 +91,9 @@ public class R4LibraryProcessor extends LibraryProcessor {
             loadLibrary(fileMap, libraries, file);
         }
 
-        CopyOnWriteArrayList<String> refreshedLibraryNames = new CopyOnWriteArrayList<>();
+        List<String> refreshedLibraryNames = new CopyOnWriteArrayList<>();
 
-        CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
+        List<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
 
         VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
 
@@ -160,7 +161,7 @@ public class R4LibraryProcessor extends LibraryProcessor {
     }
 
     @Override
-    public CopyOnWriteArrayList<String> refreshLibraryContent(RefreshLibraryParameters params) {
+    public List<String> refreshLibraryContent(RefreshLibraryParameters params) {
         if (params.parentContext != null) {
             initialize(params.parentContext);
         }

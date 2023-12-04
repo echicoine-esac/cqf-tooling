@@ -16,8 +16,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class QuestionnaireProcessorTest extends RefreshTest {
     private static final Logger logger = LoggerFactory.getLogger(QuestionnaireProcessorTest.class);
@@ -36,7 +34,7 @@ public class QuestionnaireProcessorTest extends RefreshTest {
 
     @BeforeMethod
     public void setUp() throws Exception {
-        IOUtils.resourceDirectories = new CopyOnWriteArrayList<>();
+        IOUtils.resourceDirectories = new ArrayList<String>();
         System.setOut(new PrintStream(this.console));
         File dir  = new File(TARGET_PATH);
         if (dir.exists()) {
@@ -67,7 +65,7 @@ public class QuestionnaireProcessorTest extends RefreshTest {
         refreshedLibraryNames.add("LibraryEvaluationTest");
         refreshedLibraryNames.add("LibraryEvaluationTestElements");
         refreshedLibraryNames.add("LibraryEvaluationTestConcepts");
-        CopyOnWriteArrayList<String> binaryPaths = new CopyOnWriteArrayList<>();
+        ArrayList<String> binaryPaths = new ArrayList<String>();
         binaryPaths.add(TARGET_PATH + separator + "input" + separator + "cql");
         Boolean includeDependencies = true;
         Boolean includeTerminology = true;

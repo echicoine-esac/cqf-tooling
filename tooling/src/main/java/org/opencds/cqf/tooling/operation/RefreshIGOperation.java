@@ -38,6 +38,11 @@ public class RefreshIGOperation extends Operation {
         QuestionnaireProcessor questionnaireProcessor = new QuestionnaireProcessor(libraryProcessor);
         IGBundleProcessor igBundleProcessor = new IGBundleProcessor(measureProcessor, planDefinitionProcessor, questionnaireProcessor);
         IGProcessor processor = new IGProcessor(igBundleProcessor, libraryProcessor, measureProcessor);
+
+        if (params.includeErrors == null || !params.includeErrors) {
+            System.out.println("\r\n\t[ALERT] Error information suppressed. Re-run with -x to show full error information during refresh.\r\n");
+        }
+
         processor.publishIG(params);
     }
 }

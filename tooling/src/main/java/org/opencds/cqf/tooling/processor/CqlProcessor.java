@@ -128,9 +128,14 @@ public class CqlProcessor {
     @SuppressWarnings("unused")
     private String canonicalBase;
 
+    private Boolean includeErrors;
+
+
+
     private NamespaceInfo namespaceInfo;
 
-    public CqlProcessor(List<NpmPackage> packages, List<String> folders, ILibraryReader reader, ILoggingService logger, UcumService ucumService, String packageId, String canonicalBase) {
+    public CqlProcessor(List<NpmPackage> packages, List<String> folders, ILibraryReader reader, ILoggingService logger,
+                        UcumService ucumService, String packageId, String canonicalBase, Boolean includeErrors) {
         super();
         this.packages = packages;
         this.folders = folders;
@@ -142,6 +147,7 @@ public class CqlProcessor {
         if (packageId != null && !packageId.isEmpty() && canonicalBase != null && !canonicalBase.isEmpty()) {
             this.namespaceInfo = new NamespaceInfo(packageId, canonicalBase);
         }
+        this.includeErrors = includeErrors;
     }
 
     /**
@@ -385,19 +391,15 @@ public class CqlProcessor {
                 result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(),
                         String.format("CQL Processing failed with (%d) errors.", translator.getErrors().size()), IssueSeverity.ERROR));
 
-//                logger.logMessage(String.format("Translation failed with (%d) errors; see the error log for more information.", translator.getErrors().size()));
+                //clean reporting of errors with file name :
+                System.out.printf("CQL Processing of %s failed with %d Error(s) %s%n",
+                       file.getName(), translator.getErrors().size(),
 
-
-                //clean reporting of errors with file name:
-
-                System.out.println(String.format("CQL Processing of %s failed with %d Error(s): %s",
-                                file.getName(), translator.getErrors().size(), ""
-//                        listTranslatorErrors(translator).stream()
-//                                .map(error -> "\n\t" + error)
-//                                .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
-//                                .toString()
-                        )
-
+                        (includeErrors ?
+                        listTranslatorErrors(translator).stream()
+                                .map(error -> "\n\t" + error)
+                                .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
+                         : "")
                 );
 
             } else {
@@ -436,8 +438,8 @@ public class CqlProcessor {
                     // Extract dataRequirement data
                     result.dataRequirements.addAll(requirementsLibrary.getDataRequirement());
 
-                    System.out.println(String.format("CQL Processing of %s completed successfully.",
-                                    file.getName()));
+                    System.out.printf("CQL Processing of %s completed successfully.%n",
+                                    file.getName());
                 } catch (Exception ex) {
                     logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", file.getAbsolutePath(), ex.getMessage()));
                 }

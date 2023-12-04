@@ -314,11 +314,25 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
         if (!translatorWarningMessages.isEmpty()) {
             message.append(NEWLINE).append(translatorWarningMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered warnings:");
             for (String library : translatorWarningMessages.keySet()) {
-                message.append(NEWLINE_INDENT).append(library).append(":" + NEWLINE_INDENT2).append(String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages.get(library))));
+                Set<String> translatorWarningMessagesSet = translatorWarningMessages.get(library);
+
+                message.append(NEWLINE_INDENT).append("CQL Processing of ").append(library)
+                        .append(" failed with ").append(translatorWarningMessagesSet.size())
+                        .append(" Error(s)").append(
+                                //user included -x option, give full error list:
+                                includeErrors
+                                        ?
+                                        getJoinedErrorList(translatorWarningMessagesSet)
+                                        : "");
+
             }
         }
 
         System.out.println(message.toString());
+    }
+
+    private static String getJoinedErrorList(Set<String> translatorWarningMessages) {
+        return ":" + String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages));
     }
 
     private String getResourcePrefix() {

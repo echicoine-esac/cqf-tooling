@@ -1,5 +1,9 @@
 package org.opencds.cqf.tooling.processor;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+
 import org.fhir.ucum.UcumEssenceService;
 import org.fhir.ucum.UcumException;
 import org.fhir.ucum.UcumService;
@@ -21,11 +25,6 @@ import org.opencds.cqf.tooling.npm.NpmPackageManager;
 import org.opencds.cqf.tooling.utilities.IGUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class BaseProcessor implements IProcessorContext, IWorkerContext.ILoggingService {
 
@@ -75,6 +74,13 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
 
     protected IProcessorContext parentContext;
 
+    //used to inform user of errors that occurred during refresh of library, measure, or test cases
+    public Boolean includeErrors = false;
+
+    public Boolean getIncludeErrors() {
+        return includeErrors;
+    }
+
     public void initialize(IProcessorContext context) {
         this.parentContext = context;
 
@@ -118,7 +124,7 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
         packageManager = new NpmPackageManager(sourceIg, this.fhirVersion);
 
         // Setup binary paths (cql source directories)
-        binaryPaths = new ArrayList<>(IGUtils.extractBinaryPaths(rootDir, sourceIg));
+        binaryPaths = IGUtils.extractBinaryPaths(rootDir, sourceIg);
     }
 
     /*
@@ -160,9 +166,8 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
             if (packageManager == null) {
                 throw new IllegalStateException("packageManager is null. It should be initialized at this point.");
             }
-
             cqlProcessor = new CqlProcessor(packageManager.getNpmList(), binaryPaths, reader, this, ucumService,
-                    packageId, canonicalBase);
+                    packageId, canonicalBase, includeErrors);
         }
 
         return cqlProcessor;

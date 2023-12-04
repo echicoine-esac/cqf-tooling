@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.google.common.base.Strings;
 
@@ -75,6 +74,8 @@ public class IGProcessor extends BaseProcessor {
         Boolean addBundleTimestamp = params.addBundleTimestamp;
         Boolean versioned = params.versioned;
         String fhirUri = params.fhirUri;
+        includeErrors = params.includeErrors;
+
         // String measureToRefreshPath = params.measureToRefreshPath;
         ArrayList<String> resourceDirs = new ArrayList<String>();
         for (String resourceDir : params.resourceDirs) {
@@ -162,6 +163,8 @@ public class IGProcessor extends BaseProcessor {
                 e.printStackTrace();
             }
         }
+        Boolean includeErrors = params.includeErrors;
+
         IOUtils.resourceDirectories.addAll(resourceDirs);
 
         FhirContext fhirContext = IGProcessor.getIgFhirContext(fhirVersion);
@@ -187,7 +190,7 @@ public class IGProcessor extends BaseProcessor {
 
         if (includePatientScenarios) {
             TestCaseProcessor testCaseProcessor = new TestCaseProcessor();
-            testCaseProcessor.refreshTestCases(FilenameUtils.concat(rootDir, IGProcessor.testCasePathElement), encoding, fhirContext, refreshedResourcesNames);
+            testCaseProcessor.refreshTestCases(FilenameUtils.concat(rootDir, IGProcessor.testCasePathElement), encoding, fhirContext, refreshedResourcesNames, includeErrors);
         }
     }
 

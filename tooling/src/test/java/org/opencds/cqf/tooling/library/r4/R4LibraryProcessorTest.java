@@ -6,7 +6,6 @@ import static org.testng.Assert.assertTrue;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.apache.commons.io.FileUtils;
 import org.opencds.cqf.tooling.RefreshTest;
@@ -26,7 +25,7 @@ public class R4LibraryProcessorTest extends LibraryProcessorTest {
 
     @BeforeMethod
     public void setUp() throws Exception {
-        IOUtils.resourceDirectories = new CopyOnWriteArrayList<>();
+        IOUtils.resourceDirectories = new ArrayList<String>();
         IOUtils.clearDevicePaths();
         File dir  = new File("target" + separator + "refreshLibraries" + separator + "r4");
         if (dir.exists()) {
@@ -38,7 +37,7 @@ public class R4LibraryProcessorTest extends LibraryProcessorTest {
     void testRefreshOverwriteLibraries() throws Exception {
         String targetDirectory = "target" + separator + "refreshLibraries" + separator + this.resourceDirectory;
         copyResourcesToTargetDir(targetDirectory, this.resourceDirectory);
-
+        
         String libraryPath = separator + "input" + separator + "resources" + separator + "library" + separator + "library-EXM124_FHIR4-8.2.000.json";
         runRefresh(
             targetDirectory,

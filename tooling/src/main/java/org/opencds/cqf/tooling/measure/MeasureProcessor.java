@@ -38,11 +38,16 @@ public class MeasureProcessor extends AbstractResourceProcessor {
     public static String getId(String baseId) {
         return ResourcePrefix + baseId;
     }
-    public List<String> refreshIgMeasureContent(BaseProcessor parentContext, Encoding outputEncoding, Boolean versioned, FhirContext fhirContext, String measureToRefreshPath, Boolean shouldApplySoftwareSystemStamp) {
-        return refreshIgMeasureContent(parentContext, outputEncoding, null, versioned, fhirContext, measureToRefreshPath, shouldApplySoftwareSystemStamp);
+    public List<String> refreshIgMeasureContent(BaseProcessor parentContext, Encoding outputEncoding, Boolean versioned, FhirContext fhirContext,
+                                                String measureToRefreshPath, Boolean shouldApplySoftwareSystemStamp) {
+
+        return refreshIgMeasureContent(parentContext, outputEncoding, null, versioned, fhirContext, measureToRefreshPath,
+                shouldApplySoftwareSystemStamp);
     }
 
-    public List<String> refreshIgMeasureContent(BaseProcessor parentContext, Encoding outputEncoding, String measureOutputDirectory, Boolean versioned, FhirContext fhirContext, String measureToRefreshPath, Boolean shouldApplySoftwareSystemStamp) {
+    public List<String> refreshIgMeasureContent(BaseProcessor parentContext, Encoding outputEncoding, String measureOutputDirectory,
+                                                Boolean versioned, FhirContext fhirContext, String measureToRefreshPath,
+                                                Boolean shouldApplySoftwareSystemStamp) {
 
         System.out.println("\r\n[Refreshing Measures]\r\n");
 
@@ -129,11 +134,12 @@ public class MeasureProcessor extends AbstractResourceProcessor {
                         hasErrors = true;
                     }
                 }
-                System.out.println(String.format("CQL Processing of %s failed with %d Error(s): %s",
-                        measure.getName(), errors.size(), ""
-//                      errorMessage.toString()
-                        )
-                );
+                System.out.printf("CQL Processing of %s failed with %d Error(s): %s%n",
+                        measure.getName(), errors.size(),
+                        (includeErrors ?
+                        errorMessage.toString()
+                         : "")
+                        );
             }
             if (!hasErrors) {
                 return processor.refreshMeasure(measure, libraryManager, CompiledLibrary, cqlTranslatorOptions.getCqlCompilerOptions());

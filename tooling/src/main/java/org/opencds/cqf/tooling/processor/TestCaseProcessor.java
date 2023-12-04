@@ -27,11 +27,12 @@ public class TestCaseProcessor
 {
     private static final Logger logger = LoggerFactory.getLogger(TestCaseProcessor.class);
 
-    public void refreshTestCases(String path, IOUtils.Encoding encoding, FhirContext fhirContext) {
-        refreshTestCases(path, encoding, fhirContext, null);
+    public void refreshTestCases(String path, IOUtils.Encoding encoding, FhirContext fhirContext, Boolean includeErrors) {
+        refreshTestCases(path, encoding, fhirContext, null, includeErrors);
     }
 
-    public void refreshTestCases(String path, IOUtils.Encoding encoding, FhirContext fhirContext, @Nullable List<String> refreshedResourcesNames)
+    public void refreshTestCases(String path, IOUtils.Encoding encoding, FhirContext fhirContext, @Nullable List<String> refreshedResourcesNames,
+                                 Boolean includeErrors)
     {
         System.out.println("\r\n[Refreshing Tests]\r\n");
 
@@ -116,16 +117,28 @@ public class TestCaseProcessor
                                         Object bundle;
                                         if ((resources.size() == 1) && (BundleUtils.resourceIsABundle(resources.get(0)))) {
                                             bundle = processTestBundle(fileId, resources.get(0), fhirContext);
-                                        }else {
+                                        } else {
                                             bundle = BundleUtils.bundleArtifacts(fileId, resources, fhirContext, false);
                                         }
                                         IOUtils.writeBundle(bundle, testArtifactPath, encoding, fhirContext);
 
                                     } catch (Exception e) {
-                                        LogUtils.putException(testCasePath, e);
+                                        //clean reporting of errors with file name:
+                                        System.out.printf("Test Case refresh failed for %s: %s%n",
+                                                testCasePath,
+                                                (includeErrors ?
+                                                        e.getMessage()
+                                                        : "")
+                                        );
                                     } finally {
                                         LogUtils.warn(testCasePath);
                                     }
+
+                                    //clean reporting of status with file name:
+                                    System.out.printf("Test Case refreshed: %s%n",
+                                            testCasePath
+                                    );
+
                                     //task requires return statement
                                     return null;
                                 });

@@ -86,11 +86,8 @@ public class R4MeasureProcessor extends MeasureProcessor {
         List<org.hl7.fhir.r5.model.Measure> refreshedMeasures = super.refreshGeneratedContent(measures);
         VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
 
-        //build list of tasks via for loop:
-//        List<Callable<Void>> refreshedMeasureTasks = new ArrayList<>();
 
         for (org.hl7.fhir.r5.model.Measure refreshedMeasure : refreshedMeasures) {
-//            refreshedMeasureTasks.add(() -> {
                 org.hl7.fhir.r4.model.Measure measure = (org.hl7.fhir.r4.model.Measure) versionConvertor_40_50.convertResource(refreshedMeasure);
                 if (measure.hasIdentifier() && !measure.getIdentifier().isEmpty()) {
                     this.getIdentifiers().addAll(measure.getIdentifier());
@@ -131,12 +128,7 @@ public class R4MeasureProcessor extends MeasureProcessor {
                     refreshedMeasureNames.add(refreshedMeasureName);
                 }
 
-//                //task requires return statement
-//                return null;
-//            });
         }//end for
-
-//        ThreadUtils.executeTasks(refreshedMeasureTasks);
 
         return refreshedMeasureNames;
     }
@@ -167,7 +159,6 @@ public class R4MeasureProcessor extends MeasureProcessor {
         fhirContext = params.fhirContext;
         encoding = params.encoding;
         versioned = params.versioned;
-
         R4MeasureProcessor.cqfmHelper = new CqfmSoftwareSystemHelper(rootDir);
 
         if (measureOutputDirectory != null) {
@@ -176,4 +167,5 @@ public class R4MeasureProcessor extends MeasureProcessor {
             return refreshMeasures(measurePath, encoding);
         }
     }
+
 }

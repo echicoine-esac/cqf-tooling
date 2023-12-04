@@ -1019,7 +1019,7 @@ public class IOUtils {
         }
     }
 
-    private static Set <String> devicePaths;
+    private static Set<String> devicePaths;
     public static Set<String> getDevicePaths(FhirContext fhirContext) {
         if (devicePaths == null) {
             setupDevicePaths(fhirContext);
@@ -1033,8 +1033,8 @@ public class IOUtils {
     }
 
     private static void setupDevicePaths(FhirContext fhirContext) {
-        devicePaths = new HashSet <>();
-        Map<String, IBaseResource> resources = new HashMap<>();
+        devicePaths = new LinkedHashSet <>();
+        Map<String, IBaseResource> resources = new LinkedHashMap<>();
         for (String dir : resourceDirectories) {
             for(String path : IOUtils.getFilePaths(dir, true)) {
                 try {

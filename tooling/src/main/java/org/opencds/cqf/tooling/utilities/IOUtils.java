@@ -7,11 +7,12 @@ import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.sf.saxon.expr.instruct.Copy;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.cqframework.cql.cql2elm.*;
-import org.cqframework.cql.elm.tracking.TrackBack;
+import org.cqframework.cql.cql2elm.CqlTranslator;
+import org.cqframework.cql.cql2elm.CqlTranslatorOptions;
+import org.cqframework.cql.cql2elm.LibraryManager;
+import org.cqframework.cql.cql2elm.ModelManager;
 import org.hl7.fhir.instance.model.api.IBaseBundle;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.utilities.Utilities;
@@ -26,9 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -67,7 +65,7 @@ public class IOUtils {
         }
     }
 
-    public static CopyOnWriteArrayList<String> resourceDirectories = new CopyOnWriteArrayList<>();
+    public static List<String> resourceDirectories = new ArrayList<>();
 
     public static String getIdFromFileName(String fileName) {
         return fileName.replace("_", "-");
@@ -367,10 +365,10 @@ public class IOUtils {
     public static boolean isDirectory(String path) {
         return FileUtils.isDirectory(new File(path));
     }
-    private static final ConcurrentHashMap<String, CopyOnWriteArrayList<String>> cachedFilePaths = new ConcurrentHashMap<>();
+    private static final Map<String, List<String>> cachedFilePaths = new HashMap<>();
 
-    public static CopyOnWriteArrayList<String> getFilePaths(String directoryPath, Boolean recursive) {
-        CopyOnWriteArrayList<String> filePaths = new CopyOnWriteArrayList<>();
+    public static List<String> getFilePaths(String directoryPath, Boolean recursive) {
+        List<String> filePaths = new ArrayList<>();
         String key = directoryPath + ":" + recursive;
 
         if (IOUtils.cachedFilePaths.containsKey(key)) {
@@ -1021,8 +1019,8 @@ public class IOUtils {
         }
     }
 
-    private static ConcurrentSkipListSet <String> devicePaths;
-    public static ConcurrentSkipListSet<String> getDevicePaths(FhirContext fhirContext) {
+    private static Set <String> devicePaths;
+    public static Set<String> getDevicePaths(FhirContext fhirContext) {
         if (devicePaths == null) {
             setupDevicePaths(fhirContext);
         }
@@ -1035,12 +1033,15 @@ public class IOUtils {
     }
 
     private static void setupDevicePaths(FhirContext fhirContext) {
-        devicePaths = new ConcurrentSkipListSet <>();
-        ConcurrentHashMap<String, IBaseResource> resources = new ConcurrentHashMap<>();
+        devicePaths = new HashSet <>();
+        Map<String, IBaseResource> resources = new HashMap<>();
         for (String dir : resourceDirectories) {
             for(String path : IOUtils.getFilePaths(dir, true)) {
                 try {
-                    resources.put(path, IOUtils.readResource(path, fhirContext, true));
+                    IBaseResource resource = IOUtils.readResource(path, fhirContext, true);
+                    if (resource != null) {
+                        resources.put(path, resource);
+                    }
                 } catch (Exception e) {
                     if(path.toLowerCase().contains("device")) {
                         logger.error("Error reading in Device from path: {} \n {}", path, e.getMessage());

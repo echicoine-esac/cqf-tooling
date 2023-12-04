@@ -6,7 +6,6 @@ import org.opencds.cqf.tooling.questionnaire.QuestionnaireProcessor;
 import org.opencds.cqf.tooling.utilities.HttpClientUtils;
 import org.opencds.cqf.tooling.utilities.IOUtils;
 import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
-import org.opencds.cqf.tooling.utilities.LogUtils;
 import org.opencds.cqf.tooling.utilities.ResourceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +14,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class IGBundleProcessor {
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -30,7 +28,7 @@ public class IGBundleProcessor {
         this.questionnaireProcessor = questionnaireProcessor;
     }
 
-    public void bundleIg(ArrayList<String> refreshedLibraryNames, String igPath, CopyOnWriteArrayList<String> binaryPaths, Encoding encoding, Boolean includeELM,
+    public void bundleIg(ArrayList<String> refreshedLibraryNames, String igPath, List<String> binaryPaths, Encoding encoding, Boolean includeELM,
                          Boolean includeDependencies, Boolean includeTerminology, Boolean includePatientScenarios, Boolean versioned, Boolean addBundleTimestamp,
                          FhirContext fhirContext, String fhirUri) {
 

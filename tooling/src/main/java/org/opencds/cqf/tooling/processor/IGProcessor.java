@@ -168,7 +168,7 @@ public class IGProcessor extends BaseProcessor {
 
         IGProcessor.ensure(rootDir, includePatientScenarios, includeTerminology, IOUtils.resourceDirectories);
 
-        CopyOnWriteArrayList<String> refreshedLibraryNames;
+        List<String> refreshedLibraryNames;
         refreshedLibraryNames = libraryProcessor.refreshIgLibraryContent(this, encoding, libraryPath, libraryOutputPath, versioned, fhirContext, params.shouldApplySoftwareSystemStamp);
         refreshedResourcesNames.addAll(refreshedLibraryNames);
 

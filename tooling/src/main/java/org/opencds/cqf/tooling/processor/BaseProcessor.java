@@ -1,9 +1,5 @@
 package org.opencds.cqf.tooling.processor;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 import org.fhir.ucum.UcumEssenceService;
 import org.fhir.ucum.UcumException;
 import org.fhir.ucum.UcumService;
@@ -19,13 +15,17 @@ import org.hl7.fhir.utilities.IniFile;
 import org.hl7.fhir.utilities.TextFile;
 import org.hl7.fhir.utilities.Utilities;
 import org.hl7.fhir.utilities.VersionUtilities;
-import org.hl7.fhir.utilities.npm.NpmPackage;
 import org.opencds.cqf.tooling.exception.IGInitializationException;
 import org.opencds.cqf.tooling.npm.LibraryLoader;
 import org.opencds.cqf.tooling.npm.NpmPackageManager;
 import org.opencds.cqf.tooling.utilities.IGUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BaseProcessor implements IProcessorContext, IWorkerContext.ILoggingService {
 
@@ -118,7 +118,7 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
         packageManager = new NpmPackageManager(sourceIg, this.fhirVersion);
 
         // Setup binary paths (cql source directories)
-        binaryPaths = new CopyOnWriteArrayList<>(IGUtils.extractBinaryPaths(rootDir, sourceIg));
+        binaryPaths = new ArrayList<>(IGUtils.extractBinaryPaths(rootDir, sourceIg));
     }
 
     /*
@@ -137,13 +137,13 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
         initializeFromIg(rootDir, igPath, specifiedFhirVersion);
     }
 
-    private CopyOnWriteArrayList<String> binaryPaths;
+    private List<String> binaryPaths;
 
-    public CopyOnWriteArrayList<String> getBinaryPaths() {
+    public List<String> getBinaryPaths() {
         return binaryPaths;
     }
 
-    protected void setBinaryPaths(CopyOnWriteArrayList<String> binaryPaths) {
+    protected void setBinaryPaths(List<String> binaryPaths) {
         this.binaryPaths = binaryPaths;
     }
 
@@ -161,10 +161,7 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
                 throw new IllegalStateException("packageManager is null. It should be initialized at this point.");
             }
 
-            final CopyOnWriteArrayList<NpmPackage> concurrentNpmPackageList = new CopyOnWriteArrayList<>(packageManager.getNpmList());
-            final CopyOnWriteArrayList<String> concurrentBinaryPathsList = new CopyOnWriteArrayList<>(binaryPaths);
-
-            cqlProcessor = new CqlProcessor(concurrentNpmPackageList, concurrentBinaryPathsList, reader, this, ucumService,
+            cqlProcessor = new CqlProcessor(packageManager.getNpmList(), binaryPaths, reader, this, ucumService,
                     packageId, canonicalBase);
         }
 

@@ -1,24 +1,6 @@
 package org.opencds.cqf.tooling.processor;
 
-import java.io.File;
-import java.io.FilenameFilter;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-
-import org.cqframework.cql.cql2elm.CqlCompilerException;
-import org.cqframework.cql.cql2elm.CqlCompilerOptions;
-import org.cqframework.cql.cql2elm.CqlTranslator;
-import org.cqframework.cql.cql2elm.CqlTranslatorOptions;
-import org.cqframework.cql.cql2elm.DefaultLibrarySourceProvider;
-import org.cqframework.cql.cql2elm.DefaultModelInfoProvider;
-import org.cqframework.cql.cql2elm.LibraryManager;
-import org.cqframework.cql.cql2elm.ModelManager;
+import org.cqframework.cql.cql2elm.*;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
 import org.cqframework.cql.cql2elm.quick.FhirLibrarySourceProvider;
 import org.cqframework.cql.elm.requirements.fhir.DataRequirementsProcessor;
@@ -41,6 +23,12 @@ import org.opencds.cqf.tooling.npm.NpmLibrarySourceProvider;
 import org.opencds.cqf.tooling.npm.NpmModelInfoProvider;
 import org.opencds.cqf.tooling.utilities.ResourceUtils;
 
+import java.io.File;
+import java.io.FilenameFilter;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.concurrent.Callable;
+
 public class CqlProcessor {
 
     /**
@@ -50,10 +38,10 @@ public class CqlProcessor {
         private VersionedIdentifier identifier;
         private byte[] elm;
         private byte[] jsonElm;
-        private CopyOnWriteArrayList<ValidationMessage> errors = new CopyOnWriteArrayList<>();
-        private CopyOnWriteArrayList<RelatedArtifact> relatedArtifacts = new CopyOnWriteArrayList<>();
-        private CopyOnWriteArrayList<DataRequirement> dataRequirements = new CopyOnWriteArrayList<>();
-        private CopyOnWriteArrayList<ParameterDefinition> parameters = new CopyOnWriteArrayList<>();
+        private final List<ValidationMessage> errors = new ArrayList<>();
+        private final List<RelatedArtifact> relatedArtifacts = new ArrayList<>();
+        private final List<DataRequirement> dataRequirements = new ArrayList<>();
+        private final List<ParameterDefinition> parameters = new ArrayList<>();
         public VersionedIdentifier getIdentifier() {
             return identifier;
         }
@@ -72,16 +60,16 @@ public class CqlProcessor {
         public void setJsonElm(byte[] jsonElm) {
             this.jsonElm = jsonElm;
         }
-        public CopyOnWriteArrayList<ValidationMessage> getErrors() {
+        public List<ValidationMessage> getErrors() {
             return errors;
         }
-        public CopyOnWriteArrayList<RelatedArtifact> getRelatedArtifacts() {
+        public List<RelatedArtifact> getRelatedArtifacts() {
             return relatedArtifacts;
         }
-        public CopyOnWriteArrayList<DataRequirement> getDataRequirements() {
+        public List<DataRequirement> getDataRequirements() {
             return dataRequirements;
         }
-        public CopyOnWriteArrayList<ParameterDefinition> getParameters() {
+        public List<ParameterDefinition> getParameters() {
             return parameters;
         }
     }
@@ -93,36 +81,36 @@ public class CqlProcessor {
      * library in the right order
      *
      */
-    private CopyOnWriteArrayList<NpmPackage> packages;
+    private final List<NpmPackage> packages;
 
     /**
      * All the file paths cql files might be found in (absolute local file paths)
      *
      * will be at least one error
      */
-    private CopyOnWriteArrayList<String> folders;
+    private final List<String> folders;
 
     /**
      * Version indepedent reader
      */
-    private ILibraryReader reader;
+    private final ILibraryReader reader;
 
     /**
      * use this to write to the standard IG log
      */
-    private ILoggingService logger;
+    private final ILoggingService logger;
 
     /**
      * UcumService used by the translator to validate UCUM units
      */
-    private UcumService ucumService;
+    private final UcumService ucumService;
 
     /**
      * Map of translated files by fully qualified file name.
      * ConcurrentHashMap for thread safe access
      * Populated during execute
      */
-    private ConcurrentHashMap<String, CqlSourceFileInformation> fileMap;
+    private Map<String, CqlSourceFileInformation> fileMap;
 
     /**
      * The packageId for the implementation guide, used to construct a NamespaceInfo for the CQL translator
@@ -142,7 +130,7 @@ public class CqlProcessor {
 
     private NamespaceInfo namespaceInfo;
 
-    public CqlProcessor(CopyOnWriteArrayList<NpmPackage> packages, CopyOnWriteArrayList<String> folders, ILibraryReader reader, ILoggingService logger, UcumService ucumService, String packageId, String canonicalBase) {
+    public CqlProcessor(List<NpmPackage> packages, List<String> folders, ILibraryReader reader, ILoggingService logger, UcumService ucumService, String packageId, String canonicalBase) {
         super();
         this.packages = packages;
         this.folders = folders;
@@ -166,7 +154,7 @@ public class CqlProcessor {
     public void execute() throws FHIRException {
         try {
             System.out.println("\r\n[Translating CQL source files]\r\n");
-            fileMap = new ConcurrentHashMap<>();
+            fileMap = new HashMap<>();
 
             // foreach folder
             List<Callable<Void>> foldersTasks = new ArrayList<>();
@@ -224,7 +212,7 @@ public class CqlProcessor {
      * @return
      */
     public List<ValidationMessage> getGeneralErrors() {
-        List<ValidationMessage> result = new CopyOnWriteArrayList<>();
+        List<ValidationMessage> result = new ArrayList<>();
 
         if (fileMap != null) {
             for (Map.Entry<String, CqlSourceFileInformation> entry : fileMap.entrySet()) {
@@ -285,7 +273,7 @@ public class CqlProcessor {
         File[] listFiles = new File(folder).listFiles(getCqlFilenameFilter());
         boolean hasCqlFiles = listFiles!= null && listFiles.length > 0;
         if (hasCqlFiles) {
-            List<Callable<Void>> translateFileTasks = new CopyOnWriteArrayList<>();
+            List<Callable<Void>> translateFileTasks = new ArrayList<>();
             for (File file : listFiles) {
                 translateFileTasks.add(() -> {
                     translateFile(libraryManager, file, options.getCqlCompilerOptions());
@@ -401,14 +389,18 @@ public class CqlProcessor {
 
 
                 //clean reporting of errors with file name:
-                System.out.println(String.format("\r\nCQL Processing of " + file.getName() + " failed with " + translator.getErrors().size() + " Error(s): %s",
-                        listTranslatorErrors(translator).stream()
-                                .map(error -> "\n\t" + error)
-                                .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
-                                .toString()));
 
-            }
-            else {
+                System.out.println(String.format("CQL Processing of %s failed with %d Error(s): %s",
+                                file.getName(), translator.getErrors().size(), ""
+//                        listTranslatorErrors(translator).stream()
+//                                .map(error -> "\n\t" + error)
+//                                .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
+//                                .toString()
+                        )
+
+                );
+
+            } else {
                 try {
                     // convert to base64 bytes
                     // NOTE: Publication tooling requires XML content
@@ -444,7 +436,8 @@ public class CqlProcessor {
                     // Extract dataRequirement data
                     result.dataRequirements.addAll(requirementsLibrary.getDataRequirement());
 
-                    logger.logMessage("CQL translation completed successfully.");
+                    System.out.println(String.format("CQL Processing of %s completed successfully.",
+                                    file.getName()));
                 } catch (Exception ex) {
                     logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", file.getAbsolutePath(), ex.getMessage()));
                 }

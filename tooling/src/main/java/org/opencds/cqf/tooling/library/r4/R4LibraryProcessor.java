@@ -23,9 +23,7 @@ import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 import ca.uhn.fhir.context.FhirContext;
 
 public class R4LibraryProcessor extends LibraryProcessor {
-    private String libraryPath;
     private FhirContext fhirContext;
-    private Encoding encoding;
     private static CqfmSoftwareSystemHelper cqfmHelper;
 
     private String getLibraryPath(String libraryPath) {
@@ -69,26 +67,26 @@ public class R4LibraryProcessor extends LibraryProcessor {
                 });
             }
             ThreadUtils.executeTasks(tasks);
-        }
-        else if (file.isDirectory()) {
+        }else if (file.isDirectory()) {
             ArrayList<Callable<Void>> tasks = new ArrayList<>();
+            File[] fileList = file.listFiles();
+            if (fileList != null && fileList.length > 0) {
+                for (File libraryFile : fileList) {
 
-            for (File libraryFile : file.listFiles()) {
+                    tasks.add(() -> {
 
-                tasks.add(() -> {
+                        if (IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
+                            loadLibrary(fileMap, libraries, libraryFile);
+                        }
 
-                    if(IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
-                        loadLibrary(fileMap, libraries, libraryFile);
-                    }
+                        //task requires return statement
+                        return null;
+                    });
+                }
 
-                    //task requires return statement
-                    return null;
-                });
+                ThreadUtils.executeTasks(tasks);
             }
-
-            ThreadUtils.executeTasks(tasks);
-        }
-        else {
+        }else {
             loadLibrary(fileMap, libraries, file);
         }
 
@@ -170,9 +168,9 @@ public class R4LibraryProcessor extends LibraryProcessor {
             initializeFromIni(params.ini);
         }
 
-        libraryPath = params.libraryPath;
+        String libraryPath = params.libraryPath;
         fhirContext = params.fhirContext;
-        encoding = params.encoding;
+        Encoding encoding = params.encoding;
         versioned = params.versioned;
 
         R4LibraryProcessor.cqfmHelper = new CqfmSoftwareSystemHelper(rootDir);

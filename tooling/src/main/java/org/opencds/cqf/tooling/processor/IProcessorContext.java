@@ -4,6 +4,7 @@ import org.fhir.ucum.UcumService;
 import org.hl7.fhir.r5.model.ImplementationGuide;
 import org.opencds.cqf.tooling.npm.NpmPackageManager;
 
+import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public interface IProcessorContext {
@@ -21,7 +22,7 @@ public interface IProcessorContext {
 
     NpmPackageManager getPackageManager();
 
-    CopyOnWriteArrayList<String> getBinaryPaths();
+    List<String> getBinaryPaths();
 
     CqlProcessor getCqlProcessor();
 }

@@ -72,11 +72,24 @@ public class LibraryProcessor extends BaseProcessor {
         return refreshIgLibraryContent(parentContext, outputEncoding, null, libraryOutputDirectory, versioned, fhirContext, shouldApplySoftwareSystemStamp);
     }
 
+    /**
+     * Refreshes the content of an Implementation Guide (IG) library using a thread-safe
+     * {@link java.util.concurrent.CopyOnWriteArrayList} for thread-safe access multithreading capability.
+     *
+     * @param parentContext The parent processor context for the IG library refresh.
+     * @param outputEncoding The encoding to be used for the refreshed library content.
+     * @param libraryPath The path to the IG library. If null, a default path is used.
+     * @param libraryOutputDirectory The output directory for the refreshed libraries. If empty,
+     *                               existing libraries will be overwritten.
+     * @param versioned Indicates whether the library content should be versioned.
+     * @param fhirContext The FHIR context specifying the version of the FHIR standard to be used.
+     * @param shouldApplySoftwareSystemStamp Indicates whether a software system stamp should be applied to the library.
+     * @return A thread-safe list of strings containing the names of the refreshed libraries.
+     * @throws IllegalArgumentException if an unknown FHIR version is encountered.
+     */
     public CopyOnWriteArrayList<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryPath, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
 
         System.out.println("\r\n[Refreshing Libraries]\r\n");
-
-        // ArrayList<String> refreshedLibraryNames = new ArrayList<String>();
 
         LibraryProcessor libraryProcessor;
         switch (fhirContext.getVersion().getVersion()) {

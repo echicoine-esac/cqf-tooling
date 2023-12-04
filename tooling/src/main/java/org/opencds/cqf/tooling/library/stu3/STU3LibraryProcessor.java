@@ -1,7 +1,9 @@
 package org.opencds.cqf.tooling.library.stu3;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -12,6 +14,7 @@ import org.hl7.fhir.convertors.conv30_50.VersionConvertor_30_50;
 import org.hl7.fhir.dstu3.model.Library;
 import org.hl7.fhir.dstu3.model.RelatedArtifact;
 import org.hl7.fhir.dstu3.model.Resource;
+import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.common.stu3.CqfmSoftwareSystemHelper;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshLibraryParameters;
@@ -20,7 +23,6 @@ import org.opencds.cqf.tooling.utilities.IOUtils;
 import ca.uhn.fhir.context.FhirContext;
 
 public class STU3LibraryProcessor extends LibraryProcessor {
-    private String libraryPath;
     private FhirContext fhirContext;
     private static CqfmSoftwareSystemHelper cqfmHelper;
 
@@ -38,16 +40,27 @@ public class STU3LibraryProcessor extends LibraryProcessor {
         File file = new File(libraryPath);
         ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<String, String>();
         CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> libraries = new CopyOnWriteArrayList<>();
+
         if (file.isDirectory()) {
-            for (File libraryFile : file.listFiles()) {
-                if(IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
-                    loadLibrary(fileMap, libraries, libraryFile);
+            ArrayList<Callable<Void>> tasks = new ArrayList<>();
+            File[] fileList = file.listFiles();
+            if (fileList != null && fileList.length > 0) {
+                for (File libraryFile : fileList) {
+                    tasks.add(() -> {
+                        if (IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
+                            loadLibrary(fileMap, libraries, libraryFile);
+                        }
+                        //task requires return statement
+                        return null;
+                    });
                 }
+
+                ThreadUtils.executeTasks(tasks);
             }
-        }
-        else {
+        }else {
             loadLibrary(fileMap, libraries, file);
         }
+
 
         CopyOnWriteArrayList<String> refreshedLibraryNames = new CopyOnWriteArrayList<String>();
         CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
@@ -137,7 +150,7 @@ public class STU3LibraryProcessor extends LibraryProcessor {
             initializeFromIni(params.ini);
         }
 
-        libraryPath = params.libraryPath;
+        String libraryPath = params.libraryPath;
         fhirContext = params.fhirContext;
         versioned = params.versioned;
 

@@ -129,8 +129,11 @@ public class MeasureProcessor extends AbstractResourceProcessor {
                         hasErrors = true;
                     }
                 }
-                System.out.println(String.format("\r\nCQL Processing of %s failed with %d Error(s): %s",
-                        measure.getName(), errors.size(), errorMessage.toString()));
+                System.out.println(String.format("CQL Processing of %s failed with %d Error(s): %s",
+                        measure.getName(), errors.size(), ""
+//                      errorMessage.toString()
+                        )
+                );
             }
             if (!hasErrors) {
                 return processor.refreshMeasure(measure, libraryManager, CompiledLibrary, cqlTranslatorOptions.getCqlCompilerOptions());

@@ -28,6 +28,7 @@ import java.io.FilenameFilter;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class CqlProcessor {
 
@@ -110,7 +111,7 @@ public class CqlProcessor {
      * ConcurrentHashMap for thread safe access
      * Populated during execute
      */
-    private Map<String, CqlSourceFileInformation> fileMap;
+    private ConcurrentHashMap<String, CqlSourceFileInformation> fileMap;
 
     /**
      * The packageId for the implementation guide, used to construct a NamespaceInfo for the CQL translator
@@ -160,7 +161,7 @@ public class CqlProcessor {
     public void execute() throws FHIRException {
         try {
             System.out.println("\r\n[Translating CQL source files]\r\n");
-            fileMap = new HashMap<>();
+            fileMap = new ConcurrentHashMap<>();
 
             // foreach folder
             List<Callable<Void>> foldersTasks = new ArrayList<>();
@@ -392,7 +393,7 @@ public class CqlProcessor {
                         String.format("CQL Processing failed with (%d) errors.", translator.getErrors().size()), IssueSeverity.ERROR));
 
                 //clean reporting of errors with file name :
-                System.out.printf("CQL Processing of %s failed with %d Error(s) %s%n",
+                System.out.printf("[FAIL] CQL Processing of %s failed with %d Error(s) %s%n",
                        file.getName(), translator.getErrors().size(),
 
                         (includeErrors ?
@@ -438,7 +439,7 @@ public class CqlProcessor {
                     // Extract dataRequirement data
                     result.dataRequirements.addAll(requirementsLibrary.getDataRequirement());
 
-                    System.out.printf("CQL Processing of %s completed successfully.%n",
+                    System.out.printf("[SUCCESS] CQL Processing of %s completed successfully.%n",
                                     file.getName());
                 } catch (Exception ex) {
                     logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", file.getAbsolutePath(), ex.getMessage()));

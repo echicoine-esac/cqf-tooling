@@ -94,6 +94,7 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
             this.packageManager = parentContext.getPackageManager();
             this.binaryPaths = parentContext.getBinaryPaths();
             this.cqlProcessor = parentContext.getCqlProcessor();
+            this.includeErrors = parentContext.getIncludeErrors();
         }
     }
 

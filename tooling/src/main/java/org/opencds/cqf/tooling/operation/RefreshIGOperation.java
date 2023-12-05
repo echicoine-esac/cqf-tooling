@@ -1,15 +1,9 @@
 package org.opencds.cqf.tooling.operation;
 
 import org.opencds.cqf.tooling.Operation;
-import org.opencds.cqf.tooling.library.LibraryProcessor;
-import org.opencds.cqf.tooling.measure.MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshIGParameters;
-import org.opencds.cqf.tooling.processor.CDSHooksProcessor;
-import org.opencds.cqf.tooling.processor.IGBundleProcessor;
 import org.opencds.cqf.tooling.processor.IGProcessor;
-import org.opencds.cqf.tooling.processor.PlanDefinitionProcessor;
 import org.opencds.cqf.tooling.processor.argument.RefreshIGArgumentProcessor;
-import org.opencds.cqf.tooling.questionnaire.QuestionnaireProcessor;
 
 public class RefreshIGOperation extends Operation {
 
@@ -31,19 +25,12 @@ public class RefreshIGOperation extends Operation {
             System.err.println(e.getMessage());
             System.exit(1);
         }
-        MeasureProcessor measureProcessor = new MeasureProcessor();
-        LibraryProcessor libraryProcessor = new LibraryProcessor();
-        CDSHooksProcessor cdsHooksProcessor = new CDSHooksProcessor();
-        PlanDefinitionProcessor planDefinitionProcessor = new PlanDefinitionProcessor(libraryProcessor, cdsHooksProcessor);
-        QuestionnaireProcessor questionnaireProcessor = new QuestionnaireProcessor(libraryProcessor);
-        IGBundleProcessor igBundleProcessor = new IGBundleProcessor(measureProcessor, planDefinitionProcessor, questionnaireProcessor);
-        IGProcessor processor = new IGProcessor(igBundleProcessor, libraryProcessor, measureProcessor);
 
         if (params.includeErrors == null || !params.includeErrors) {
             System.out.println("\r\n\t[ALERT] Error information suppressed. Re-run with -x to show full error information during refresh.\r\n");
         }
 
-        processor.publishIG(params);
+        new IGProcessor().publishIG(params);
     }
 }
 

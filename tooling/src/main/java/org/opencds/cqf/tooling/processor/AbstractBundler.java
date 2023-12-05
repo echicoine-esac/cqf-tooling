@@ -27,7 +27,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * This class provides methods for bundling resources, including dependencies and test cases, and handles the execution of associated tasks.
  * Subclasses must implement specific methods for gathering, processing, and persisting resources.
  */
-public abstract class AbstractResourceProcessor extends BaseProcessor {
+public abstract class AbstractBundler {
     public static final String NEWLINE_INDENT2 = "\n\t\t";
     public static final String NEWLINE_INDENT = "\r\n\t";
     public static final String NEWLINE = "\r\n";
@@ -96,7 +96,7 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
      */
     public void bundleResources(ArrayList<String> refreshedLibraryNames, String igPath, List<String> binaryPaths, Boolean includeDependencies,
                                 Boolean includeTerminology, Boolean includePatientScenarios, Boolean includeVersion, Boolean addBundleTimestamp,
-                                FhirContext fhirContext, String fhirUri, IOUtils.Encoding encoding) {
+                                FhirContext fhirContext, String fhirUri, IOUtils.Encoding encoding, Boolean includeErrors) {
 
         final Map<String, IBaseResource> resourcesMap = getResources(fhirContext);
         final List<String> bundledResources = new CopyOnWriteArrayList<>();
@@ -316,14 +316,16 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
             for (String library : cqlTranslatorErrorMessages.keySet()) {
                 Set<String> translatorWarningMessagesSet = cqlTranslatorErrorMessages.get(library);
 
-                message.append(NEWLINE_INDENT).append("CQL Processing of ").append(library)
-                        .append(" failed with ").append(translatorWarningMessagesSet.size())
-                        .append(" Error(s)").append(
-                                //user included -x option, give full error list:
-                                includeErrors
-                                        ?
-                                        getJoinedErrorList(translatorWarningMessagesSet)
-                                        : "");
+                message.append(NEWLINE_INDENT)
+                        .append("CQL Processing of ")
+                        .append(library)
+                        .append(" failed with ")
+                        .append(translatorWarningMessagesSet.size())
+                        .append(" Error(s) ");
+
+                if (includeErrors) {
+                    message.append(getJoinedErrorList(translatorWarningMessagesSet));
+                }
 
             }
         }
@@ -332,7 +334,7 @@ public abstract class AbstractResourceProcessor extends BaseProcessor {
     }
 
     private static String getJoinedErrorList(Set<String> translatorWarningMessages) {
-        return ":" + String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages));
+        return ": " + String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages));
     }
 
     private String getResourcePrefix() {

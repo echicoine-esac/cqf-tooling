@@ -51,6 +51,8 @@ public class LibraryProcessor extends BaseProcessor {
     }
     private static Pattern pattern;
 
+
+
     private static Pattern getPattern() {
         if(pattern == null) {
             String regex = "^[a-zA-Z]+[a-zA-Z0-9_\\-\\.]*";
@@ -106,7 +108,7 @@ public class LibraryProcessor extends BaseProcessor {
         }
 
         if (libraryPath == null) {
-            libraryPath = FilenameUtils.concat(parentContext.getRootDir(), IGProcessor.libraryPathElement);
+            libraryPath = FilenameUtils.concat(parentContext.getRootDir(), IGProcessor.LIB_PATH_ELEMENT);
         }
         else if (!Utilities.isAbsoluteFileName(libraryPath)) {
             libraryPath = FilenameUtils.concat(parentContext.getRootDir(), libraryPath);

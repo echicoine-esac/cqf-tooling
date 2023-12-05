@@ -7,31 +7,22 @@ import org.cqframework.cql.cql2elm.CqlTranslatorOptions;
 import org.cqframework.cql.cql2elm.LibraryManager;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
 import org.hl7.elm.r1.VersionedIdentifier;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r5.model.Measure;
 import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.measure.r4.R4MeasureProcessor;
 import org.opencds.cqf.tooling.measure.stu3.STU3MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshMeasureParameters;
-import org.opencds.cqf.tooling.processor.AbstractResourceProcessor;
 import org.opencds.cqf.tooling.processor.BaseProcessor;
-import org.opencds.cqf.tooling.processor.CqlProcessor;
 import org.opencds.cqf.tooling.processor.IGProcessor;
 import org.opencds.cqf.tooling.utilities.*;
 import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 
-import java.io.File;
-import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class MeasureProcessor extends AbstractResourceProcessor {
+public class MeasureProcessor extends BaseProcessor {
     public static final String ResourcePrefix = "measure-";
     protected CopyOnWriteArrayList<Object> identifiers;
 
@@ -64,7 +55,7 @@ public class MeasureProcessor extends AbstractResourceProcessor {
                         "Unknown fhir version: " + fhirContext.getVersion().getVersion().getFhirVersionString());
         }
 
-        String measurePath = FilenameUtils.concat(parentContext.getRootDir(), IGProcessor.measurePathElement);
+        String measurePath = FilenameUtils.concat(parentContext.getRootDir(), IGProcessor.MEASURE_PATH_ELEMENT);
         RefreshMeasureParameters params = new RefreshMeasureParameters();
         params.measurePath = measurePath;
         params.parentContext = parentContext;
@@ -148,59 +139,5 @@ public class MeasureProcessor extends AbstractResourceProcessor {
             }
         }
         return measure;
-    }
-
-    //abstract methods to override:
-    @Override
-    protected void persistTestFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri) {
-
-        String filesLoc = bundleDestPath + File.separator + libraryName + "-files";
-        File directory = new File(filesLoc);
-        if (directory.exists()) {
-
-            File[] filesInDir = directory.listFiles(new FilenameFilter() {
-                @Override
-                public boolean accept(File dir, String name) {
-                    return name.toLowerCase().startsWith("tests-");
-                }
-            });
-
-            if (!(filesInDir == null || filesInDir.length == 0)) {
-                for (File file : filesInDir) {
-                    if (file.getName().toLowerCase().startsWith("tests-")) {
-                        try {
-                            IBaseResource resource = IOUtils.readResource(file.getAbsolutePath(), fhirContext, true);
-                            //ensure the resource can be posted
-                            if (BundleUtils.resourceIsTransactionBundle(resource)) {
-                                BundleUtils.postBundle(encoding, fhirContext, fhirUri, resource);
-                            }
-                        } catch (Exception e) {
-                            //resource is likely not IBaseResource
-                            logger.error("persistTestFiles", e);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @Override
-    protected String getSourcePath(FhirContext fhirContext, Map.Entry<String, IBaseResource> resourceEntry) {
-        return IOUtils.getMeasurePathMap(fhirContext).get(resourceEntry.getKey());
-    }
-
-    @Override
-    protected Map<String, IBaseResource> getResources(FhirContext fhirContext) {
-        return IOUtils.getMeasures(fhirContext);
-    }
-
-    @Override
-    protected String getResourceProcessorType() {
-        return TYPE_MEASURE;
-    }
-
-    @Override
-    protected Set<String> getPaths(FhirContext fhirContext) {
-        return IOUtils.getMeasurePaths(fhirContext);
     }
 }

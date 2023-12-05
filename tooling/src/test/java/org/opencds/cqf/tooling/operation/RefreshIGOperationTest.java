@@ -25,16 +25,10 @@ import org.apache.commons.io.FileUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.utilities.IniFile;
 import org.opencds.cqf.tooling.RefreshTest;
-import org.opencds.cqf.tooling.library.LibraryProcessor;
-import org.opencds.cqf.tooling.measure.MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshIGParameters;
-import org.opencds.cqf.tooling.processor.CDSHooksProcessor;
-import org.opencds.cqf.tooling.processor.IGBundleProcessor;
 import org.opencds.cqf.tooling.processor.IGProcessor;
-import org.opencds.cqf.tooling.processor.PlanDefinitionProcessor;
 import org.opencds.cqf.tooling.processor.TestCaseProcessor;
 import org.opencds.cqf.tooling.processor.argument.RefreshIGArgumentProcessor;
-import org.opencds.cqf.tooling.questionnaire.QuestionnaireProcessor;
 import org.opencds.cqf.tooling.utilities.IOUtils;
 import org.opencds.cqf.tooling.utilities.ResourceUtils;
 import org.slf4j.Logger;
@@ -336,7 +330,7 @@ public class RefreshIGOperationTest extends RefreshTest {
 
 		File iniFile = this.createTempINI(igProperties);
 
-		String args[] = { "-RefreshIG", "-ini=" + iniFile.getAbsolutePath(), "-t", "-d", "-p" };
+		String[] args = { "-RefreshIG", "-ini=" + iniFile.getAbsolutePath(), "-t", "-d", "-p" };
 
         RefreshIGParameters params = null;
         try {
@@ -346,20 +340,12 @@ public class RefreshIGOperationTest extends RefreshTest {
             System.err.println(e.getMessage());
             System.exit(1);
         }
-        MeasureProcessor measureProcessor = new MeasureProcessor();
-        LibraryProcessor libraryProcessor = new LibraryProcessor();
-        CDSHooksProcessor cdsHooksProcessor = new CDSHooksProcessor();
-        PlanDefinitionProcessor planDefinitionProcessor = new PlanDefinitionProcessor(libraryProcessor, cdsHooksProcessor);
-		QuestionnaireProcessor questionnaireProcessor = new QuestionnaireProcessor(libraryProcessor);
-        IGBundleProcessor igBundleProcessor = new IGBundleProcessor(measureProcessor, planDefinitionProcessor, questionnaireProcessor);
-        IGProcessor processor = new IGProcessor(igBundleProcessor, libraryProcessor, measureProcessor);
 
         //override ini to be null
         params.ini = null;
 
-
         try {
-			processor.publishIG(params);
+			new IGProcessor().publishIG(params);
 		} catch (Exception e) {
 			assertEquals(e.getClass(), NullPointerException.class);
 		}

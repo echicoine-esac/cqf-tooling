@@ -1,41 +1,41 @@
-package org.opencds.cqf.tooling.processor;
+package org.opencds.cqf.tooling.questionnaire;
 
 import java.util.Map;
 import java.util.Set;
 
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
+import org.opencds.cqf.tooling.processor.AbstractBundler;
 import org.opencds.cqf.tooling.utilities.IOUtils;
 
 import ca.uhn.fhir.context.FhirContext;
 
-public class PlanDefinitionProcessor extends AbstractResourceProcessor {
+public class QuestionnaireBundler extends AbstractBundler {
 
     @SuppressWarnings("this-escape")
-    public PlanDefinitionProcessor(LibraryProcessor libraryProcessor, CDSHooksProcessor cdsHooksProcessor) {
+    public QuestionnaireBundler(LibraryProcessor libraryProcessor) {
         setLibraryProcessor(libraryProcessor);
-        setCDSHooksProcessor(cdsHooksProcessor);
     }
 
     //abstract methods to override:
     @Override
     protected String getSourcePath(FhirContext fhirContext, Map.Entry<String, IBaseResource> resourceEntry) {
-        return IOUtils.getPlanDefinitionPathMap(fhirContext).get(resourceEntry.getKey());
+        return IOUtils.getQuestionnairePathMap(fhirContext).get(resourceEntry.getKey());
     }
 
     @Override
     protected Map<String, IBaseResource> getResources(FhirContext fhirContext) {
-        return IOUtils.getPlanDefinitions(fhirContext);
+        return IOUtils.getQuestionnaires(fhirContext);
     }
 
     @Override
     protected String getResourceProcessorType() {
-        return TYPE_PLAN_DEFINITION;
+        return TYPE_QUESTIONNAIRE;
     }
 
     @Override
     protected Set<String> getPaths(FhirContext fhirContext) {
-        return IOUtils.getPlanDefinitionPaths(fhirContext);
+        return IOUtils.getQuestionnairePaths(fhirContext);
     }
 
     @Override

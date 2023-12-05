@@ -23,32 +23,30 @@ public class MeasureBundler extends AbstractBundler {
 
     //abstract methods to override:
     @Override
-    protected void persistTestFiles(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri) {
+    protected void persistFiles(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri) {
+        persistFilesWithFilter(bundleDestPath, libraryName, encoding, fhirContext, fhirUri, "tests-");
+        persistFilesWithFilter(bundleDestPath, libraryName, encoding, fhirContext, fhirUri, "group-");
+    }
+
+    protected void persistFilesWithFilter(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri, String startsWithFilter) {
 
         String filesLoc = bundleDestPath + File.separator + libraryName + "-files";
         File directory = new File(filesLoc);
         if (directory.exists()) {
 
-            File[] filesInDir = directory.listFiles(new FilenameFilter() {
-                @Override
-                public boolean accept(File dir, String name) {
-                    return name.toLowerCase().startsWith("tests-");
-                }
-            });
+            File[] filesInDir = directory.listFiles((dir, name) -> name.toLowerCase().startsWith(startsWithFilter));
 
             if (!(filesInDir == null || filesInDir.length == 0)) {
                 for (File file : filesInDir) {
-                    if (file.getName().toLowerCase().startsWith("tests-")) {
-                        try {
-                            IBaseResource resource = IOUtils.readResource(file.getAbsolutePath(), fhirContext, true);
-                            //ensure the resource can be posted
-                            if (BundleUtils.resourceIsTransactionBundle(resource)) {
-                                BundleUtils.postBundle(encoding, fhirContext, fhirUri, resource);
-                            }
-                        } catch (Exception e) {
-                            //resource is likely not IBaseResource
-                            logger.error("persistTestFiles", e);
-                        }
+                    try {
+                        IBaseResource resource = IOUtils.readResource(file.getAbsolutePath(), fhirContext, true);
+                        //ensure the resource can be posted
+//                            if (BundleUtils.resourceIsTransactionBundle(resource)) {
+                        BundleUtils.postBundle(encoding, fhirContext, fhirUri, resource);
+//                            }
+                    } catch (Exception e) {
+                        //resource is likely not IBaseResource
+                        logger.error("persistTestFiles", e);
                     }
                 }
             }

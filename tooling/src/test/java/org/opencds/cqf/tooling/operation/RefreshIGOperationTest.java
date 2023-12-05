@@ -139,7 +139,7 @@ public class RefreshIGOperationTest extends RefreshTest {
         new RefreshIGOperation().execute(args);
 
         int requestCount = WireMock.getAllServeEvents().size();
-        assertEquals(requestCount, 3); //Looking for 3 resources posts (measure, and two tests)
+        assertEquals(requestCount, 4); //Looking for 4 resources posts (measure, two tests, one group)
 
         if (wireMockServer != null) {
             wireMockServer.stop();

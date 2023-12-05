@@ -45,7 +45,7 @@ public class IGBundleProcessor {
         //this message can be moved to any point of this process, but so far it's just the bundle measure process
         //that will persist test files. If Questionnaires and PlanDefinitions should ever need test files as well
         //persistTestFiles can be moved to AbstractResourceProcessor from MeasureProcessor instead of abstract sig
-        System.out.println("\r\nTotal \"tests-*\" files copied: " + IOUtils.copyFileCounter() + ". " +
+        System.out.println("\r\nTotal test files copied: " + IOUtils.copyFileCounter() + ". " +
                 (fhirUri != null && !fhirUri.isEmpty() ? "These files will be posted to " + fhirUri : "")
         );
         System.out.println("\r\n[Bundle Measures has finished - " + getTime() + "]\r\n");

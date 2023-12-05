@@ -235,7 +235,7 @@ public abstract class AbstractBundler {
 
                             //Check for test files in bundleDestPath + "-files", loop through if exists,
                             // find all files that start with "tests-", post to fhir server following same folder structure:
-                            persistTestFiles(bundleDestPath, resourceName, encoding, fhirContext, fhirUri);
+                            persistFiles(bundleDestPath, resourceName, encoding, fhirContext, fhirUri);
 
                             if (cdsHooksProcessor != null) {
                                 List<String> activityDefinitionPaths = CDSHooksProcessor.bundleActivityDefinitions(resourceSourcePath, fhirContext, resources, encoding, includeVersion, shouldPersist);
@@ -404,7 +404,7 @@ public abstract class AbstractBundler {
         BundleUtils.postBundle(encoding, fhirContext, fhirUri, (IBaseResource) bundle);
     }
 
-    protected abstract void persistTestFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri);
+    protected abstract void persistFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri);
 
     protected abstract String getSourcePath(FhirContext fhirContext, Map.Entry<String, IBaseResource> resourceEntry);
 

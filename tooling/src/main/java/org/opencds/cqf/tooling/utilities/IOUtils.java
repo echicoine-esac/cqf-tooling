@@ -201,9 +201,9 @@ public class IOUtils {
 
     private static final Map<String, String> alreadyCopied = new HashMap<>();
     public static int copyFileCounter() {
-        return copyFileCounter;
+        return persistCopyFileCounter;
     }
-    private static int copyFileCounter = 0;
+    private static int persistCopyFileCounter = 0;
     public static boolean copyFile(String inputPath, String outputPath) {
 
         if ((inputPath == null || inputPath.isEmpty()) &&
@@ -232,10 +232,10 @@ public class IOUtils {
             Path src = Paths.get(inputPath);
             Path dest = Paths.get(outputPath);
             Files.copy(src, dest, StandardCopyOption.REPLACE_EXISTING);
-
-            if (inputPath.toLowerCase().contains("tests-")){
-                copyFileCounter++;
-//                System.out.println("Total tests-*: " + testsCounter + ": " + inputPath);
+            String separator = System.getProperty("file.separator");
+            if (inputPath.toLowerCase().contains(separator + "tests-") ||
+                    inputPath.toLowerCase().contains(separator + "group-")){
+                persistCopyFileCounter++;
             }
 
             alreadyCopied.put(key, outputPath);

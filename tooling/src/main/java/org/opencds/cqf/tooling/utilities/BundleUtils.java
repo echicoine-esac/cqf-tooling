@@ -271,6 +271,5 @@ public class BundleUtils {
             return ((org.hl7.fhir.r4.model.Bundle) inputResource).getType().equals(org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION);
         }
         return false;
-
     }
 }

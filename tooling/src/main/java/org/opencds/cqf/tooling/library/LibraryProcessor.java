@@ -301,7 +301,7 @@ public class LibraryProcessor extends BaseProcessor {
     }
 
     public List<Library> refreshGeneratedContent(String cqlDirectoryPath, String fhirVersion) {
-        List<String> result = new ArrayList<String>();
+        CopyOnWriteArrayList<String> result = new CopyOnWriteArrayList<String>();
         File input = new File(cqlDirectoryPath);
         if (input.exists() && input.isDirectory()) {
             result.add(input.getAbsolutePath());

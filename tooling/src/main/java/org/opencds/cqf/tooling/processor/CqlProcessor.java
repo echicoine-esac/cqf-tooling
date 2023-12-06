@@ -17,18 +17,14 @@ import org.hl7.fhir.utilities.npm.NpmPackage;
 import org.hl7.fhir.utilities.validation.ValidationMessage;
 import org.hl7.fhir.utilities.validation.ValidationMessage.IssueSeverity;
 import org.hl7.fhir.utilities.validation.ValidationMessage.IssueType;
-import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.npm.ILibraryReader;
 import org.opencds.cqf.tooling.npm.NpmLibrarySourceProvider;
 import org.opencds.cqf.tooling.npm.NpmModelInfoProvider;
 import org.opencds.cqf.tooling.utilities.ResourceUtils;
 
-import java.io.File;
-import java.io.FilenameFilter;
+import java.io.*;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class CqlProcessor {
 
@@ -39,37 +35,47 @@ public class CqlProcessor {
         private VersionedIdentifier identifier;
         private byte[] elm;
         private byte[] jsonElm;
-        private final List<ValidationMessage> errors = new ArrayList<>();
-        private final List<RelatedArtifact> relatedArtifacts = new ArrayList<>();
-        private final List<DataRequirement> dataRequirements = new ArrayList<>();
-        private final List<ParameterDefinition> parameters = new ArrayList<>();
+        private List<ValidationMessage> errors = new ArrayList<>();
+        private List<RelatedArtifact> relatedArtifacts = new ArrayList<>();
+        private List<DataRequirement> dataRequirements = new ArrayList<>();
+        private List<ParameterDefinition> parameters = new ArrayList<>();
+
         public VersionedIdentifier getIdentifier() {
             return identifier;
         }
+
         public void setIdentifier(VersionedIdentifier identifier) {
             this.identifier = identifier;
         }
+
         public byte[] getElm() {
             return elm;
         }
+
         public void setElm(byte[] elm) {
             this.elm = elm;
         }
+
         public byte[] getJsonElm() {
             return jsonElm;
         }
+
         public void setJsonElm(byte[] jsonElm) {
             this.jsonElm = jsonElm;
         }
+
         public List<ValidationMessage> getErrors() {
             return errors;
         }
+
         public List<RelatedArtifact> getRelatedArtifacts() {
             return relatedArtifacts;
         }
+
         public List<DataRequirement> getDataRequirements() {
             return dataRequirements;
         }
+
         public List<ParameterDefinition> getParameters() {
             return parameters;
         }
@@ -80,13 +86,12 @@ public class CqlProcessor {
      * This list is in a maintained order such that you can just
      * do for (NpmPackage p : packages) and that will resolve the
      * library in the right order
-     *
      */
     private final List<NpmPackage> packages;
 
     /**
      * All the file paths cql files might be found in (absolute local file paths)
-     *
+     * <p>
      * will be at least one error
      */
     private final List<String> folders;
@@ -94,24 +99,24 @@ public class CqlProcessor {
     /**
      * Version indepedent reader
      */
-    private final ILibraryReader reader;
+    private ILibraryReader reader;
 
     /**
      * use this to write to the standard IG log
      */
-    private final ILoggingService logger;
+    private ILoggingService logger;
 
     /**
      * UcumService used by the translator to validate UCUM units
      */
-    private final UcumService ucumService;
+    private UcumService ucumService;
 
     /**
      * Map of translated files by fully qualified file name.
      * ConcurrentHashMap for thread safe access
      * Populated during execute
      */
-    private ConcurrentHashMap<String, CqlSourceFileInformation> fileMap;
+    private Map<String, CqlSourceFileInformation> fileMap;
 
     /**
      * The packageId for the implementation guide, used to construct a NamespaceInfo for the CQL translator
@@ -130,8 +135,6 @@ public class CqlProcessor {
     private String canonicalBase;
 
     private Boolean includeErrors;
-
-
 
     private NamespaceInfo namespaceInfo;
 
@@ -153,34 +156,28 @@ public class CqlProcessor {
 
     /**
      * Do the compile. Do not return any exceptions related to content; only throw exceptions for infrastructural issues
-     *
+     * <p>
      * note that it's not an error if there's no .cql files - this is called without checking for their existence
-     *
+     * <p>
      * Any exception will stop the build cold.
      */
     public void execute() throws FHIRException {
         try {
             System.out.println("\r\n[Translating CQL source files]\r\n");
-            fileMap = new ConcurrentHashMap<>();
+            fileMap = new HashMap<>();
 
             // foreach folder
-            List<Callable<Void>> foldersTasks = new ArrayList<>();
             for (String folder : folders) {
-                foldersTasks.add(() -> {
-                    translateFolder(folder);
-                    //task requires return statement
-                    return null;
-                });
+                translateFolder(folder);
             }
-            ThreadUtils.executeTasks(foldersTasks);
-        }
-        catch (Exception E) {
+        } catch (Exception E) {
             logger.logDebugMessage(ILoggingService.LogCategory.PROGRESS, String.format("Errors occurred attempting to translate CQL content: %s", E.getMessage()));
         }
     }
 
     /**
      * Return CqlSourceFileInformation for the given filename
+     *
      * @param filename Fully qualified name of the source file
      * @return
      */
@@ -190,7 +187,7 @@ public class CqlProcessor {
         }
 
         if (!fileMap.containsKey(filename)) {
-            for (Map.Entry<String, CqlSourceFileInformation> entry: fileMap.entrySet()) {
+            for (Map.Entry<String, CqlSourceFileInformation> entry : fileMap.entrySet()) {
                 if (filename.equalsIgnoreCase(entry.getKey())) {
                     logger.logDebugMessage(ILoggingService.LogCategory.PROGRESS, String.format("File with a similar name but different casing was found. File found: '%s'", entry.getKey()));
                 }
@@ -234,8 +231,7 @@ public class CqlProcessor {
         if (cachedOptions == null) {
             if (hasMultipleBinaryPaths) {
                 throw new RuntimeException("CqlProcessor has been used with multiple Cql paths, ambiguous options and manager");
-            }
-            else {
+            } else {
                 throw new RuntimeException("CqlProcessor has not been executed, no cached options or manager");
             }
         }
@@ -243,18 +239,23 @@ public class CqlProcessor {
 
     private boolean hasMultipleBinaryPaths = false;
     private CqlTranslatorOptions cachedOptions;
+
     public CqlTranslatorOptions getCqlTranslatorOptions() {
         checkCachedManager();
         return cachedOptions;
     }
 
     private LibraryManager cachedLibraryManager;
+
     public LibraryManager getLibraryManager() {
         checkCachedManager();
         return cachedLibraryManager;
     }
 
     private void translateFolder(String folder) {
+
+        String separator = System.getProperty("file.separator");
+
         logger.logMessage(String.format("Translating CQL source in folder %s", folder));
 
         CqlTranslatorOptions options = ResourceUtils.getTranslatorOptions(folder);
@@ -277,35 +278,37 @@ public class CqlProcessor {
 
         loadNamespaces(libraryManager);
 
-        File[] listFiles = new File(folder).listFiles(getCqlFilenameFilter());
-        boolean hasCqlFiles = listFiles!= null && listFiles.length > 0;
-        if (hasCqlFiles) {
-            List<Callable<Void>> translateFileTasks = new ArrayList<>();
-            for (File file : listFiles) {
-                translateFileTasks.add(() -> {
-                    translateFile(libraryManager, file, options.getCqlCompilerOptions());
-                    //task requires return statement
-                    return null;
-                });
+
+        File directory = new File(folder);
+        if (directory.isDirectory()) {
+            FilenameFilter filter = (dir, name) -> name.endsWith(".cql");
+            String[] cqlFiles = directory.list(filter);
+            boolean hasCqlFiles = cqlFiles != null && cqlFiles.length > 0;
+            if (hasCqlFiles) {
+
+                for (String fileName : cqlFiles) {
+                    final String fileLocation = directory.getAbsolutePath() + separator + fileName;
+                    translateFile(libraryManager, fileLocation, options.getCqlCompilerOptions());
+                }
+
+
+                if (cachedOptions == null) {
+                    if (!hasMultipleBinaryPaths) {
+                        cachedOptions = options;
+                        cachedLibraryManager = libraryManager;
+                    }
+                } else {
+                    if (!hasMultipleBinaryPaths) {
+                        hasMultipleBinaryPaths = true;
+                        cachedOptions = null;
+                        cachedLibraryManager = null;
+                    }
+                }
+            } else {
+                System.out.println("No .cql files in the directory.");
             }
-            ThreadUtils.executeTasks(translateFileTasks);
         }
 
-        if (hasCqlFiles) {
-            if (cachedOptions == null) {
-                if (!hasMultipleBinaryPaths) {
-                    cachedOptions = options;
-                    cachedLibraryManager = libraryManager;
-                }
-            }
-            else {
-                if (!hasMultipleBinaryPaths) {
-                    hasMultipleBinaryPaths = true;
-                    cachedOptions = null;
-                    cachedLibraryManager = null;
-                }
-            }
-        }
     }
 
     private void loadNamespaces(LibraryManager libraryManager) {
@@ -325,37 +328,43 @@ public class CqlProcessor {
 
     public static ValidationMessage.IssueType severityToIssueType(CqlCompilerException.ErrorSeverity severity) {
         switch (severity) {
-            case Info: return ValidationMessage.IssueType.INFORMATIONAL;
+            case Info:
+                return ValidationMessage.IssueType.INFORMATIONAL;
             case Warning:
-            case Error: return ValidationMessage.IssueType.PROCESSING;
-            default: return ValidationMessage.IssueType.UNKNOWN;
+            case Error:
+                return ValidationMessage.IssueType.PROCESSING;
+            default:
+                return ValidationMessage.IssueType.UNKNOWN;
         }
     }
 
     public static ValidationMessage.IssueSeverity severityToIssueSeverity(CqlCompilerException.ErrorSeverity severity) {
         switch (severity) {
-            case Info: return ValidationMessage.IssueSeverity.INFORMATION;
-            case Warning: return ValidationMessage.IssueSeverity.WARNING;
-            case Error: return ValidationMessage.IssueSeverity.ERROR;
-            default: return ValidationMessage.IssueSeverity.NULL;
+            case Info:
+                return ValidationMessage.IssueSeverity.INFORMATION;
+            case Warning:
+                return ValidationMessage.IssueSeverity.WARNING;
+            case Error:
+                return ValidationMessage.IssueSeverity.ERROR;
+            default:
+                return ValidationMessage.IssueSeverity.NULL;
         }
     }
 
-    public static ValidationMessage exceptionToValidationMessage(File file, CqlCompilerException exception) {
+    public static ValidationMessage exceptionToValidationMessage(String fileLocation, CqlCompilerException exception) {
         TrackBack tb = exception.getLocator();
         if (tb != null) {
             return new ValidationMessage(ValidationMessage.Source.Publisher, severityToIssueType(exception.getSeverity()),
                     tb.getStartLine(), tb.getStartChar(), tb.getLibrary().getId(), exception.getMessage(),
                     severityToIssueSeverity(exception.getSeverity()));
-        }
-        else {
+        } else {
             return new ValidationMessage(ValidationMessage.Source.Publisher, severityToIssueType(exception.getSeverity()),
-                    file.toString(), exception.getMessage(), severityToIssueSeverity(exception.getSeverity()));
+                    fileLocation, exception.getMessage(), severityToIssueSeverity(exception.getSeverity()));
         }
     }
 
     public static List<String> listTranslatorErrors(CqlTranslator translator) {
-        List<String> errors = new ArrayList<>(translator.getErrors().size());
+        List<String> errors = new ArrayList<>();
 
         for (CqlCompilerException error : translator.getErrors()) {
             errors.add((error.getLocator() == null) ? "[n/a]" : String.format("[%d:%d, %d:%d] ",
@@ -369,38 +378,32 @@ public class CqlProcessor {
         return errors;
     }
 
-    private void translateFile(LibraryManager libraryManager, File file, CqlCompilerOptions options) {
-        logger.logMessage(String.format("Translating CQL source in file %s", file.toString()));
+    private void translateFile(LibraryManager libraryManager, String fileLocation, CqlCompilerOptions options) {
         CqlSourceFileInformation result = new CqlSourceFileInformation();
-        fileMap.put(file.getAbsoluteFile().toString(), result);
 
-        if (options.getValidateUnits()) {
-            libraryManager.setUcumService(ucumService);
-        }
-
-        try {
-
+        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(fileLocation))) {
             // translate toXML
-            CqlTranslator translator = CqlTranslator.fromFile(namespaceInfo, file, libraryManager);
+
+            CqlTranslator translator = CqlTranslator.fromStream(namespaceInfo, inputStream, libraryManager);
 
             // record errors and warnings
             for (CqlCompilerException exception : translator.getExceptions()) {
-                result.getErrors().add(exceptionToValidationMessage(file, exception));
+                result.getErrors().add(exceptionToValidationMessage(fileLocation, exception));
             }
 
             if (!translator.getErrors().isEmpty()) {
-                result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(),
+                result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, fileLocation,
                         String.format("CQL Processing failed with (%d) errors.", translator.getErrors().size()), IssueSeverity.ERROR));
 
                 //clean reporting of errors with file name :
                 System.out.printf("[FAIL] CQL Processing of %s failed with %d Error(s) %s%n",
-                       file.getName(), translator.getErrors().size(),
+                        fileLocation, translator.getErrors().size(),
 
                         (includeErrors ?
-                        listTranslatorErrors(translator).stream()
-                                .map(error -> "\n\t" + error)
-                                .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
-                         : "")
+                                listTranslatorErrors(translator).stream()
+                                        .map(error -> "\n\t" + error)
+                                        .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
+                                : "")
                 );
 
             } else {
@@ -432,7 +435,7 @@ public class CqlProcessor {
                     // Extract parameter data and validate result types are supported types
                     result.parameters.addAll(requirementsLibrary.getParameter());
                     for (ValidationMessage paramMessage : drp.getValidationMessages()) {
-                        result.getErrors().add(new ValidationMessage(paramMessage.getSource(), paramMessage.getType(), file.getName(),
+                        result.getErrors().add(new ValidationMessage(paramMessage.getSource(), paramMessage.getType(), fileLocation,
                                 paramMessage.getMessage(), paramMessage.getLevel()));
                     }
 
@@ -440,15 +443,16 @@ public class CqlProcessor {
                     result.dataRequirements.addAll(requirementsLibrary.getDataRequirement());
 
                     System.out.printf("[SUCCESS] CQL Processing of %s completed successfully.%n",
-                                    file.getName());
+                            fileLocation);
                 } catch (Exception ex) {
-                    logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", file.getAbsolutePath(), ex.getMessage()));
+                    logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", fileLocation, ex.getMessage()));
                 }
             }
+        } catch (Exception e) {
+            result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, fileLocation, "CQL Processing failed with exception: " + e.getMessage(), IssueSeverity.ERROR));
         }
-        catch (Exception e) {
-            result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(), "CQL Processing failed with exception: "+e.getMessage(), IssueSeverity.ERROR));
-        }
+
+        fileMap.put(fileLocation, result);
     }
 
     private FilenameFilter getCqlFilenameFilter() {

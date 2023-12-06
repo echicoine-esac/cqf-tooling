@@ -19,16 +19,15 @@ import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MeasureProcessor extends BaseProcessor {
-    public static final String ResourcePrefix = "measure-";
-    protected CopyOnWriteArrayList<Object> identifiers;
+    public static volatile String ResourcePrefix = "measure-";
+    protected volatile List<Object> identifiers;
 
     public static String getId(String baseId) {
         return ResourcePrefix + baseId;
     }
+
     public List<String> refreshIgMeasureContent(BaseProcessor parentContext, Encoding outputEncoding, Boolean versioned, FhirContext fhirContext,
                                                 String measureToRefreshPath, Boolean shouldApplySoftwareSystemStamp) {
 
@@ -71,9 +70,9 @@ public class MeasureProcessor extends BaseProcessor {
         return contentList;
     }
 
-    protected CopyOnWriteArrayList<Object> getIdentifiers() {
+    protected List<Object> getIdentifiers() {
         if (identifiers == null) {
-            identifiers = new CopyOnWriteArrayList<>();
+            identifiers = new ArrayList<>();
         }
         return identifiers;
     }
@@ -91,18 +90,12 @@ public class MeasureProcessor extends BaseProcessor {
 
     private List<Measure> internalRefreshGeneratedContent(List<Measure> sourceMeasures) {
         // for each Measure, refresh the measure based on the primary measure library
-        List<Measure> resources = new CopyOnWriteArrayList<>();
+        List<Measure> resources = new ArrayList<>();
 
-        List<Callable<Void>> resourceRefreshTasks = new ArrayList<>();
         for (Measure measure : sourceMeasures) {
-            resourceRefreshTasks.add(() -> {
-                resources.add(refreshGeneratedContent(measure));
-                //task requires return statement
-                return null;
-            });
+            resources.add(refreshGeneratedContent(measure));
         }
 
-        ThreadUtils.executeTasks(resourceRefreshTasks);
         return resources;
     }
 
@@ -128,9 +121,9 @@ public class MeasureProcessor extends BaseProcessor {
                 System.out.printf("[FAIL] CQL Processing of %s failed with %d Error(s): %s%n",
                         measure.getName(), errors.size(),
                         (includeErrors ?
-                        errorMessage.toString()
-                         : "")
-                        );
+                                errorMessage.toString()
+                                : "")
+                );
             }
             if (!hasErrors) {
                 System.out.printf("[SUCCESS] CQL Processing of %s completed successfully.%n",

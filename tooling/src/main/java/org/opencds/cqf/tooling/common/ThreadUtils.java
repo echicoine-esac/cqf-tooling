@@ -28,7 +28,7 @@ public class ThreadUtils {
         }
 
         //let OS handle threading:
-        ExecutorService executorService = Executors.newCachedThreadPool();// Submit tasks and obtain futures
+        ExecutorService executorService = Executors.newCachedThreadPool();
         try {
             List<Future<Void>> futures = new ArrayList<>();
             for (Callable<Void> task : tasks) {

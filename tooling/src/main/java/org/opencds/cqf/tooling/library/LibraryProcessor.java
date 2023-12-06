@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FilenameUtils;
@@ -46,15 +45,16 @@ import ca.uhn.fhir.context.FhirContext;
 public class LibraryProcessor extends BaseProcessor {
     private static final Logger logger = LoggerFactory.getLogger(LibraryProcessor.class);
     public static final String ResourcePrefix = "library-";
+
     public static String getId(String baseId) {
         return ResourcePrefix + baseId;
     }
+
     private static Pattern pattern;
 
 
-
     private static Pattern getPattern() {
-        if(pattern == null) {
+        if (pattern == null) {
             String regex = "^[a-zA-Z]+[a-zA-Z0-9_\\-\\.]*";
             pattern = Pattern.compile(regex);
         }
@@ -62,7 +62,7 @@ public class LibraryProcessor extends BaseProcessor {
     }
 
     public static void validateIdAlphaNumeric(String id) {
-        if(!getPattern().matcher(id).find()) {
+        if (!getPattern().matcher(id).find()) {
             throw new RuntimeException("The library id format is invalid.");
         }
     }
@@ -79,13 +79,13 @@ public class LibraryProcessor extends BaseProcessor {
      * Refreshes the content of an Implementation Guide (IG) library using a thread-safe
      * {@link java.util.concurrent.CopyOnWriteArrayList} for thread-safe access multithreading capability.
      *
-     * @param parentContext The parent processor context for the IG library refresh.
-     * @param outputEncoding The encoding to be used for the refreshed library content.
-     * @param libraryPath The path to the IG library. If null, a default path is used.
-     * @param libraryOutputDirectory The output directory for the refreshed libraries. If empty,
-     *                               existing libraries will be overwritten.
-     * @param versioned Indicates whether the library content should be versioned.
-     * @param fhirContext The FHIR context specifying the version of the FHIR standard to be used.
+     * @param parentContext                  The parent processor context for the IG library refresh.
+     * @param outputEncoding                 The encoding to be used for the refreshed library content.
+     * @param libraryPath                    The path to the IG library. If null, a default path is used.
+     * @param libraryOutputDirectory         The output directory for the refreshed libraries. If empty,
+     *                                       existing libraries will be overwritten.
+     * @param versioned                      Indicates whether the library content should be versioned.
+     * @param fhirContext                    The FHIR context specifying the version of the FHIR standard to be used.
      * @param shouldApplySoftwareSystemStamp Indicates whether a software system stamp should be applied to the library.
      * @return A thread-safe list of strings containing the names of the refreshed libraries.
      * @throws IllegalArgumentException if an unknown FHIR version is encountered.
@@ -109,8 +109,7 @@ public class LibraryProcessor extends BaseProcessor {
 
         if (libraryPath == null) {
             libraryPath = FilenameUtils.concat(parentContext.getRootDir(), IGProcessor.LIB_PATH_ELEMENT);
-        }
-        else if (!Utilities.isAbsoluteFileName(libraryPath)) {
+        } else if (!Utilities.isAbsoluteFileName(libraryPath)) {
             libraryPath = FilenameUtils.concat(parentContext.getRootDir(), libraryPath);
         }
         RefreshLibraryParameters params = new RefreshLibraryParameters();
@@ -132,20 +131,20 @@ public class LibraryProcessor extends BaseProcessor {
      * Bundles library dependencies for a given FHIR library file and populates the provided resource map.
      * This method executes asynchronously by invoking the associated task queue.
      *
-     * @param path          The path to the FHIR library file.
-     * @param fhirContext   The FHIR context to use for processing resources.
-     * @param resources     The map to populate with library resources.
-     * @param encoding      The encoding to use for reading and processing resources.
-     * @param versioned     A boolean indicating whether to consider versioned resources.
+     * @param path        The path to the FHIR library file.
+     * @param fhirContext The FHIR context to use for processing resources.
+     * @param resources   The map to populate with library resources.
+     * @param encoding    The encoding to use for reading and processing resources.
+     * @param versioned   A boolean indicating whether to consider versioned resources.
      * @return True if the bundling of library dependencies is successful; false otherwise.
      */
     public Boolean bundleLibraryDependencies(String path, FhirContext fhirContext, Map<String, IBaseResource> resources,
                                              Encoding encoding, boolean versioned) {
-        try{
+        try {
             Queue<Callable<Void>> bundleLibraryDependenciesTasks = bundleLibraryDependenciesTasks(path, fhirContext, resources, encoding, versioned);
             ThreadUtils.executeTasks(bundleLibraryDependenciesTasks);
             return true;
-        }catch (Exception e){
+        } catch (Exception e) {
             return false;
         }
 
@@ -155,13 +154,13 @@ public class LibraryProcessor extends BaseProcessor {
      * Recursively bundles library dependencies for a given FHIR library file and populates the provided resource map.
      * Each dependency is added as a Callable task to be executed asynchronously.
      *
-     * @param path          The path to the FHIR library file.
-     * @param fhirContext   The FHIR context to use for processing resources.
-     * @param resources     The map to populate with library resources.
-     * @param encoding      The encoding to use for reading and processing resources.
-     * @param versioned     A boolean indicating whether to consider versioned resources.
+     * @param path        The path to the FHIR library file.
+     * @param fhirContext The FHIR context to use for processing resources.
+     * @param resources   The map to populate with library resources.
+     * @param encoding    The encoding to use for reading and processing resources.
+     * @param versioned   A boolean indicating whether to consider versioned resources.
      * @return A queue of Callable tasks, each representing the bundling of a library dependency.
-     *         The Callable returns null (Void) and is meant for asynchronous execution.
+     * The Callable returns null (Void) and is meant for asynchronous execution.
      */
     public Queue<Callable<Void>> bundleLibraryDependenciesTasks(String path, FhirContext fhirContext, Map<String, IBaseResource> resources,
                                                                 Encoding encoding, boolean versioned) {
@@ -194,7 +193,7 @@ public class LibraryProcessor extends BaseProcessor {
         return returnTasks;
     }
 
-    protected boolean versioned;
+    protected volatile boolean versioned;
 
     /*
     Refreshes generated content in the given library.
@@ -267,7 +266,7 @@ public class LibraryProcessor extends BaseProcessor {
             optionsReferenceValue = "#options";
             optionsReference.setReference(optionsReferenceValue);
         }
-        Parameters optionsParameters = (Parameters)sourceLibrary.getContained(optionsReferenceValue);
+        Parameters optionsParameters = (Parameters) sourceLibrary.getContained(optionsReferenceValue);
         if (optionsParameters == null) {
             optionsParameters = new Parameters();
             optionsParameters.setId(optionsReferenceValue.substring(1));
@@ -301,7 +300,7 @@ public class LibraryProcessor extends BaseProcessor {
     }
 
     public List<Library> refreshGeneratedContent(String cqlDirectoryPath, String fhirVersion) {
-        CopyOnWriteArrayList<String> result = new CopyOnWriteArrayList<String>();
+        List<String> result = new ArrayList<String>();
         File input = new File(cqlDirectoryPath);
         if (input.exists() && input.isDirectory()) {
             result.add(input.getAbsolutePath());
@@ -367,15 +366,10 @@ public class LibraryProcessor extends BaseProcessor {
         //build list of tasks via for loop:
         ArrayList<Callable<Void>> resourcesTasks = new ArrayList<>();
 
-        CopyOnWriteArrayList<Library> resources = new CopyOnWriteArrayList<>();
+        List<Library> resources = new ArrayList<>();
         for (Library library : sourceLibraries) {
-            resourcesTasks.add(() -> {
-                resources.add(refreshGeneratedContent(library));
-                //task requires return statement
-                return null;
-            });
+            resources.add(refreshGeneratedContent(library));
         }
-        ThreadUtils.executeTasks(resourcesTasks);
         return resources;
     }
 

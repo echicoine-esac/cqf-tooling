@@ -54,7 +54,7 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
         return packageId;
     }
 
-    protected String canonicalBase;
+    protected volatile String canonicalBase;
 
     public String getCanonicalBase() {
         return canonicalBase;

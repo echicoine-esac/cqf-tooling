@@ -52,7 +52,7 @@ public class IGProcessor extends BaseProcessor {
         boolean igPathProvided = params.igPath != null && !params.igPath.isEmpty();
 
         //presence of -x arg means give error details instead of just error count during cql processing
-        includeErrors = params.includeErrors != null;
+        includeErrors = (params.includeErrors != null ? params.includeErrors : false);
 
         if (!iniProvided && (!rootDirProvided || !igPathProvided)) {
             throw new IllegalArgumentException("Either the ini argument or both igPath and rootDir must be provided");

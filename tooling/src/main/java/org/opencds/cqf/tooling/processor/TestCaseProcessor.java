@@ -23,8 +23,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import ca.uhn.fhir.context.FhirVersionEnum;
 import ca.uhn.fhir.model.api.IFhirVersion;
 
-public class TestCaseProcessor
-{
+public class TestCaseProcessor {
+    public static final String separator = System.getProperty("file.separator");
     private static final Logger logger = LoggerFactory.getLogger(TestCaseProcessor.class);
 
     public void refreshTestCases(String path, IOUtils.Encoding encoding, FhirContext fhirContext, Boolean includeErrors) {
@@ -32,8 +32,7 @@ public class TestCaseProcessor
     }
 
     public void refreshTestCases(String path, IOUtils.Encoding encoding, FhirContext fhirContext, @Nullable List<String> refreshedResourcesNames,
-                                 Boolean includeErrors)
-    {
+                                 Boolean includeErrors) {
         System.out.println("\r\n[Refreshing Tests]\r\n");
 
         List<String> resourceTypeTestGroups = IOUtils.getDirectoryPaths(path, false);
@@ -116,7 +115,7 @@ public class TestCaseProcessor
                                         String fileId = getId(FilenameUtils.getName(testCasePath));
                                         Object bundle;
                                         if ((resources.size() == 1) && (BundleUtils.resourceIsABundle(resources.get(0)))) {
-                                            bundle = processTestBundle(fileId, resources.get(0), fhirContext);
+                                            bundle = processTestBundle(fileId, resources.get(0), fhirContext, testArtifactPath, testCasePath);
                                         } else {
                                             bundle = BundleUtils.bundleArtifacts(fileId, resources, fhirContext, false);
                                         }
@@ -150,8 +149,9 @@ public class TestCaseProcessor
                                 String groupFileName = "Group-" + measureName;
                                 IOUtils.writeResource(testGroup, testArtifactPath, encoding, fhirContext, true,
                                         groupFileName);
+                                //clean reporting of status with file name:
                                 System.out.printf("Group file created: %s%n",
-                                        groupFileName
+                                        testArtifactPath + separator + groupFileName
                                 );
                             }
                         }
@@ -168,7 +168,7 @@ public class TestCaseProcessor
         ThreadUtils.executeTasks(resourceTypeTestGroupsTasks);
     }
 
-    public static Object processTestBundle(String id, IBaseResource resource, FhirContext fhirContext) {
+    public static Object processTestBundle(String id, IBaseResource resource, FhirContext fhirContext, String testArtifactPath, String testCasePath) {
         switch (fhirContext.getVersion().getVersion()) {
             case DSTU3:
                 org.hl7.fhir.dstu3.model.Bundle dstu3Bundle = (org.hl7.fhir.dstu3.model.Bundle) resource;
@@ -185,7 +185,7 @@ public class TestCaseProcessor
                 return dstu3Bundle;
 
             case R4:
-                org.hl7.fhir.r4.model.Bundle r4Bundle = (org.hl7.fhir.r4.model.Bundle)resource;
+                org.hl7.fhir.r4.model.Bundle r4Bundle = (org.hl7.fhir.r4.model.Bundle) resource;
                 ResourceUtils.setIgId(id, r4Bundle, false);
                 r4Bundle.setType(org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION);
                 for (org.hl7.fhir.r4.model.Bundle.BundleEntryComponent entry : r4Bundle.getEntry()) {
@@ -271,16 +271,17 @@ public class TestCaseProcessor
     static Set<String> copiedFilePaths = new HashSet<>();
 
     //TODO: the bundle needs to have -expectedresults added too
+
     /**
      * Bundles test case files from the specified path into a destination path.
      * The method copies relevant test case files, including expected results for MeasureReports,
      * and returns a summary message with the number of files copied.
      *
-     * @param igPath             The path to the Implementation Guide (IG) containing test case files.
+     * @param igPath              The path to the Implementation Guide (IG) containing test case files.
      * @param contextResourceType The resource type associated with the test cases.
-     * @param libraryName        The name of the library associated with the test cases.
-     * @param destPath           The destination path for the bundled test case files.
-     * @param fhirContext        The FHIR context used for reading and processing resources.
+     * @param libraryName         The name of the library associated with the test cases.
+     * @param destPath            The destination path for the bundled test case files.
+     * @param fhirContext         The FHIR context used for reading and processing resources.
      * @return A summary message indicating the number of files copied for the specified test case path.
      */
     public static String bundleTestCaseFiles(String igPath, String contextResourceType, String libraryName, String destPath, FhirContext fhirContext) {

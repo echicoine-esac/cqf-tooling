@@ -39,7 +39,7 @@ public class QuestionnaireBundler extends AbstractBundler {
     }
 
     @Override
-    protected void persistFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri) {
-        //not needed
+    protected void persistOtherFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, String builtBundleDestPath) {
+        //not needed yet
     }
 }

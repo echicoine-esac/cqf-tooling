@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
 
 /**
  * An abstract base class for processors that handle the bundling of various types of resources within an ig.
@@ -79,6 +80,8 @@ public abstract class AbstractBundler {
         return identifiers;
     }
 
+
+
     /**
      * Bundles resources within an Implementation Guide based on specified options.
      *
@@ -132,13 +135,14 @@ public abstract class AbstractBundler {
                 //no path for this resource:
                 if (resourceEntry.getKey() == null ||
                         resourceEntry.getKey().equalsIgnoreCase("null")) {
-                    if (!resourceId.isEmpty()) {
+                    if (resourceId != null && !resourceId.isEmpty()) {
                         failedExceptionMessages.put(resourceId, "Path is null for " + resourceId);
                     }
                     continue;
                 }
 
                 final String resourceSourcePath = getSourcePath(fhirContext, resourceEntry);
+
                 tasks.add(() -> {
                     //check if resourceSourcePath has been processed before:
                     if (processedResources.contains(resourceSourcePath)) {
@@ -227,7 +231,7 @@ public abstract class AbstractBundler {
 
                             String bundleDestPath = FilenameUtils.concat(FilenameUtils.concat(IGProcessor.getBundlesPath(igPath), getResourceTestGroupName()), resourceName);
 
-                            persistBundle(igPath, bundleDestPath, resourceName, encoding, fhirContext, new ArrayList<IBaseResource>(resources.values()), fhirUri, addBundleTimestamp);
+                            String builtBundleDestPath = persistBundle(igPath, bundleDestPath, resourceName, encoding, fhirContext, new ArrayList<IBaseResource>(resources.values()), fhirUri, addBundleTimestamp);
 
                             String possibleBundleTestMessage = bundleFiles(igPath, bundleDestPath, resourceName, binaryPaths, resourceSourcePath,
                                     primaryLibrarySourcePath, fhirContext, encoding, includeTerminology, includeDependencies, includePatientScenarios,
@@ -235,7 +239,7 @@ public abstract class AbstractBundler {
 
                             //Check for test files in bundleDestPath + "-files", loop through if exists,
                             // find all files that start with "tests-", post to fhir server following same folder structure:
-                            persistFiles(bundleDestPath, resourceName, encoding, fhirContext, fhirUri);
+                            persistOtherFiles(bundleDestPath, resourceName, encoding, fhirContext, fhirUri, builtBundleDestPath);
 
                             if (cdsHooksProcessor != null) {
                                 List<String> activityDefinitionPaths = CDSHooksProcessor.bundleActivityDefinitions(resourceSourcePath, fhirContext, resources, encoding, includeVersion, shouldPersist);
@@ -396,16 +400,17 @@ public abstract class AbstractBundler {
     }
 
 
-    private void persistBundle(String igPath, String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, List<IBaseResource> resources, String fhirUri, Boolean addBundleTimestamp) {
+    private String persistBundle(String igPath, String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, List<IBaseResource> resources, String fhirUri, Boolean addBundleTimestamp) {
         IOUtils.initializeDirectory(bundleDestPath);
 
         Object bundle = BundleUtils.bundleArtifacts(libraryName, resources, fhirContext, addBundleTimestamp, this.getIdentifiers());
         IOUtils.writeBundle(bundle, bundleDestPath, encoding, fhirContext);
 
         BundleUtils.postBundle(encoding, fhirContext, fhirUri, (IBaseResource) bundle, bundleDestPath);
+        return bundleDestPath;
     }
 
-    protected abstract void persistFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri);
+    protected abstract void persistOtherFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, String builtBundleDestPath);
 
     protected abstract String getSourcePath(FhirContext fhirContext, Map.Entry<String, IBaseResource> resourceEntry);
 

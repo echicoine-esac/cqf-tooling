@@ -42,8 +42,8 @@ public class HttpClientUtils {
     //failedPostCalls needs to maintain the details built in the FAILED message, as well as a copy of the inputs for a retry by the user on failed posts.
     private static Queue<Pair<String, PostComponent>> failedPostCalls = new ConcurrentLinkedQueue<>();
     private static List<String> successfulPostCalls = new CopyOnWriteArrayList<>();
-    private static Map<IBaseResource, Callable<Void>> tasks = new ConcurrentHashMap<>();
-    private static List<IBaseResource> runningPostTaskList = new CopyOnWriteArrayList<>();
+    private static Map<String, Callable<Void>> tasks = new ConcurrentHashMap<>();
+    private static List<String> runningPostTaskList = new CopyOnWriteArrayList<>();
     private static final AtomicInteger counter = new AtomicInteger(0);
 
     private HttpClientUtils() {}
@@ -125,7 +125,7 @@ public class HttpClientUtils {
             HttpPost post = configureHttpPost(fhirServerUrl, resource, encoding, fhirContext);
 
             Callable<Void> task = createPostCallable(post, postPojo, currentTaskIndex);
-            tasks.put(resource, task);
+            tasks.put(resource.getIdElement().getIdPart(), task);
         } catch (Exception e) {
             logger.error("Error while submitting the POST request: " + e.getMessage(), e);
         }
@@ -149,6 +149,7 @@ public class HttpClientUtils {
         post.addHeader("content-type", "application/" + encoding.toString());
 
         String resourceString = IOUtils.encodeResourceAsString(resource, encoding, fhirContext);
+
         StringEntity input;
         try {
             input = new StringEntity(resourceString);
@@ -211,7 +212,7 @@ public class HttpClientUtils {
                 failedPostCalls.add(Pair.of(currentTaskIndex + " out of " + tasks.size() + " - Error during POST request execution: " + e.getMessage(), postPojo));
             }
 
-            runningPostTaskList.remove(postPojo.resource);
+            runningPostTaskList.remove(postPojo.resource.getIdElement().getIdPart());
             reportProgress();
             return null;
         };
@@ -253,12 +254,12 @@ public class HttpClientUtils {
             System.out.print("\rPOST: " + String.format("%.2f%%", percentage) + " done. ");
 
             List<Future<Void>> futures = new ArrayList<>();
-            List<IBaseResource> resources = new ArrayList<>(tasks.keySet());
+            List<String> resources = new ArrayList<>(tasks.keySet());
             for (int i = 0; i < resources.size(); i++) {
-                IBaseResource thisResource = resources.get(i);
+                String thisResourceId = resources.get(i);
                 if (runningPostTaskList.size() < MAX_SIMULTANEOUS_POST_COUNT) {
-                    runningPostTaskList.add(thisResource);
-                    futures.add(executorService.submit(tasks.get(thisResource)));
+                    runningPostTaskList.add(thisResourceId);
+                    futures.add(executorService.submit(tasks.get(thisResourceId)));
                 } else {
                     threadSleep(10);
                     i--;

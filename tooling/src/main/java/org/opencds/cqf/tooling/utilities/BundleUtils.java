@@ -53,12 +53,11 @@ public class BundleUtils {
                     return bundleR4Artifacts(id, resources, identifiers[0], addBundleTimestamp);
                 }
                 return bundleR4Artifacts(id, resources, null, addBundleTimestamp);
+
             default:
                 throw new IllegalArgumentException("Unknown fhir version: " + fhirContext.getVersion().getVersion().getFhirVersionString());
         }
     }
-
-
 
     public static org.hl7.fhir.dstu3.model.Bundle bundleStu3Artifacts(String id, List<IBaseResource> resources) {
         org.hl7.fhir.dstu3.model.Bundle bundle = new org.hl7.fhir.dstu3.model.Bundle();
@@ -116,11 +115,6 @@ public class BundleUtils {
                 LogUtils.putException(fileLocation, "Error posting to FHIR Server: " + fhirUri + ".  Bundle not posted.");
             }
         }
-    }
-
-    public static void postBundle(IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, String fileLocation) {
-        IBaseResource resource = IOUtils.readResource(fileLocation, fhirContext, true);
-        postBundle(encoding, fhirContext, fhirUri, resource, fileLocation);
     }
 
     public static List<Map.Entry<String, IBaseResource>> getBundlesInDir(String directoryPath, FhirContext fhirContext) {

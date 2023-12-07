@@ -23,25 +23,36 @@ public class MeasureBundler extends AbstractBundler {
 
     //abstract methods to override:
     @Override
-    protected void persistFiles(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri) {
-        persistFilesWithFilter(bundleDestPath, libraryName, encoding, fhirContext, fhirUri, "tests-");
-        persistFilesWithFilter(bundleDestPath, libraryName, encoding, fhirContext, fhirUri, "group-");
-    }
-
-    protected void persistFilesWithFilter(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri, String startsWithFilter) {
+    protected void persistOtherFiles(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri, String builtBundleDestPath) {
+        // persistFilesWithFilter(bundleDestPath, libraryName, encoding, fhirContext, fhirUri, "tests-");
+        // persistFilesWithFilter(bundleDestPath, libraryName, encoding, fhirContext, fhirUri, "group-");
 
         String filesLoc = bundleDestPath + File.separator + libraryName + "-files";
         File directory = new File(filesLoc);
         if (directory.exists()) {
 
-            File[] filesInDir = directory.listFiles((dir, name) -> name.toLowerCase().startsWith(startsWithFilter));
+            //we want all files in -files directory that end in .xml, .json, or .cql
+            File[] filesInDir = directory.listFiles((dir, name) ->
+                    (name.toLowerCase().endsWith(".cql") ||
+                            name.toLowerCase().endsWith(".json") ||
+                            name.toLowerCase().endsWith(".xml"))
+            );
 
             if (!(filesInDir == null || filesInDir.length == 0)) {
                 for (File file : filesInDir) {
+                    String failMsg = "Bundle Measures failed to persist resource " + file.getAbsolutePath();
                     try {
                         //ensure the resource can be posted
 //                            if (BundleUtils.resourceIsTransactionBundle(resource)) {
-                        BundleUtils.postBundle(encoding, fhirContext, fhirUri, file.getAbsolutePath());
+                        try {
+                            IBaseResource resource = IOUtils.readResource(file.getAbsolutePath(), fhirContext, true);
+                            if (resource != null) {
+                                BundleUtils.postBundle(encoding, fhirContext, fhirUri, resource, file.getAbsolutePath());
+                            }
+                        } catch (Exception e) {
+                            System.out.println(failMsg);
+                        }
+
 //                            }
                     } catch (Exception e) {
                         //resource is likely not IBaseResource
@@ -51,6 +62,30 @@ public class MeasureBundler extends AbstractBundler {
             }
         }
     }
+
+//    protected void persistFilesWithFilter(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri, String startsWithFilter) {
+//
+//        String filesLoc = bundleDestPath + File.separator + libraryName + "-files";
+//        File directory = new File(filesLoc);
+//        if (directory.exists()) {
+//
+//            File[] filesInDir = directory.listFiles((dir, name) -> name.toLowerCase().startsWith(startsWithFilter));
+//
+//            if (!(filesInDir == null || filesInDir.length == 0)) {
+//                for (File file : filesInDir) {
+//                    try {
+//                        //ensure the resource can be posted
+////                            if (BundleUtils.resourceIsTransactionBundle(resource)) {
+//                        BundleUtils.postBundle(encoding, fhirContext, fhirUri, file.getAbsolutePath());
+////                            }
+//                    } catch (Exception e) {
+//                        //resource is likely not IBaseResource
+//                        logger.error("persistTestFiles", e);
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     @Override
     protected String getSourcePath(FhirContext fhirContext, Map.Entry<String, IBaseResource> resourceEntry) {

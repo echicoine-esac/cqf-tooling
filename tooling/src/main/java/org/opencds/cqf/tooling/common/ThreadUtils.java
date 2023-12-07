@@ -1,6 +1,5 @@
 package org.opencds.cqf.tooling.common;
 
-import org.apache.poi.ss.formula.functions.T;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +13,7 @@ import java.util.concurrent.Future;
 
 public class ThreadUtils {
     protected static final Logger logger = LoggerFactory.getLogger(ThreadUtils.class);
+
     /**
      * Executes a list of tasks concurrently using a thread pool.
      * <p>
@@ -24,15 +24,21 @@ public class ThreadUtils {
      * @param tasks A list of Callable tasks to execute concurrently.
      */
     public static void executeTasks(List<Callable<Void>> tasks, ExecutorService executor) {
-        if (tasks == null || tasks.isEmpty()){
+        if (tasks == null || tasks.isEmpty()) {
             return;
         }
+
+        List<Callable<Void>> retryTasks = new ArrayList<>();
 
         //let OS handle threading:
         try {
             List<Future<Void>> futures = new ArrayList<>();
             for (Callable<Void> task : tasks) {
-                futures.add(executor.submit(task));
+                try {
+                    futures.add(executor.submit(task));
+                } catch (OutOfMemoryError e) {
+                    retryTasks.add(task);
+                }
             }
 
             // Wait for all tasks to complete
@@ -40,14 +46,20 @@ public class ThreadUtils {
                 future.get();
             }
         } catch (Exception e) {
-            logger.error("ThreadUtils.executeTasks", e);
+            logger.error("ThreadUtils.executeTasks: ", e);
         } finally {
-            executor.shutdown();
+            if (retryTasks.isEmpty()) {
+                executor.shutdown();
+            }else{
+                executeTasks(retryTasks, executor);
+            }
         }
     }
+
     public static void executeTasks(List<Callable<Void>> tasks) {
         executeTasks(tasks, Executors.newCachedThreadPool());
     }
+
     public static void executeTasks(Queue<Callable<Void>> callables) {
         executeTasks(new ArrayList<>(callables), Executors.newCachedThreadPool());
     }

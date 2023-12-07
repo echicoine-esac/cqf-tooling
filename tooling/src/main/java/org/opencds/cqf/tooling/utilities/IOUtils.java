@@ -205,6 +205,7 @@ public class IOUtils {
         return persistCopyFileCounter;
     }
     private static int persistCopyFileCounter = 0;
+
     public static boolean copyFile(String inputPath, String outputPath) {
 
         if ((inputPath == null || inputPath.isEmpty()) &&
@@ -249,6 +250,7 @@ public class IOUtils {
         }
 
     }
+
 
     public static String getTypeQualifiedResourceId(String path, FhirContext fhirContext) {
         IBaseResource resource = readResource(path, fhirContext, true);
@@ -387,7 +389,7 @@ public class IOUtils {
                 //note: this is not the same as ANDing recursive to isDirectory as that would result in directories
                 // being added to the list if the request is not recursive.
                 if (Boolean.TRUE.equals(recursive)) {
-                    filePaths.addAll(getFilePaths(file.getPath(), recursive));
+                    filePaths.addAll(getFilePaths(file.getPath(), true));
                 }
             } else {
                 filePaths.add(file.getPath());

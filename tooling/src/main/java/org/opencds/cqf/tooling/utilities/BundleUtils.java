@@ -108,14 +108,19 @@ public class BundleUtils {
         return bundle;
     }
 
-    public static void postBundle(IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, IBaseResource bundle) {
+    public static void postBundle(IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, IBaseResource resource, String fileLocation) {
         if (fhirUri != null && !fhirUri.isEmpty()) {
             try {
-                HttpClientUtils.post(fhirUri, bundle, encoding, fhirContext);
+                HttpClientUtils.post(fhirUri, resource, encoding, fhirContext, fileLocation);
             } catch (IOException e) {
-                LogUtils.putException(bundle.getIdElement().getIdPart(), "Error posting to FHIR Server: " + fhirUri + ".  Bundle not posted.");
+                LogUtils.putException(fileLocation, "Error posting to FHIR Server: " + fhirUri + ".  Bundle not posted.");
             }
         }
+    }
+
+    public static void postBundle(IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, String fileLocation) {
+        IBaseResource resource = IOUtils.readResource(fileLocation, fhirContext, true);
+        postBundle(encoding, fhirContext, fhirUri, resource, fileLocation);
     }
 
     public static List<Map.Entry<String, IBaseResource>> getBundlesInDir(String directoryPath, FhirContext fhirContext) {
@@ -271,5 +276,6 @@ public class BundleUtils {
             return ((org.hl7.fhir.r4.model.Bundle) inputResource).getType().equals(org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION);
         }
         return false;
+
     }
 }

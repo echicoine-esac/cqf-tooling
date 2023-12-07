@@ -51,6 +51,9 @@ public class IGProcessor extends BaseProcessor {
         boolean rootDirProvided = params.rootDir != null && !params.rootDir.isEmpty();
         boolean igPathProvided = params.igPath != null && !params.igPath.isEmpty();
 
+        //presence of -x arg means give error details instead of just error count during cql processing
+        includeErrors = params.includeErrors != null;
+
         if (!iniProvided && (!rootDirProvided || !igPathProvided)) {
             throw new IllegalArgumentException("Either the ini argument or both igPath and rootDir must be provided");
         }
@@ -140,7 +143,6 @@ public class IGProcessor extends BaseProcessor {
         }
 
         String measureToRefreshPath = params.measureToRefreshPath;
-        Boolean includeErrors = params.includeErrors;
         Encoding encoding = params.outputEncoding;
         String measureOutputPath = params.measureOutputPath;
         Boolean includePatientScenarios = params.includePatientScenarios;

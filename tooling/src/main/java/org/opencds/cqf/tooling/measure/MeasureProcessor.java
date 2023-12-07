@@ -2,13 +2,14 @@ package org.opencds.cqf.tooling.measure;
 
 import ca.uhn.fhir.context.FhirContext;
 import org.apache.commons.io.FilenameUtils;
-import org.cqframework.cql.cql2elm.CqlCompilerException;
-import org.cqframework.cql.cql2elm.CqlTranslatorOptions;
-import org.cqframework.cql.cql2elm.LibraryManager;
+import org.apache.velocity.util.ArrayListWrapper;
+import org.cqframework.cql.cql2elm.*;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
+import org.cqframework.cql.cql2elm.quick.FhirLibrarySourceProvider;
 import org.hl7.elm.r1.VersionedIdentifier;
 import org.hl7.fhir.r5.model.Measure;
 import org.opencds.cqf.tooling.common.ThreadUtils;
+import org.opencds.cqf.tooling.cql.exception.CQLTranslatorException;
 import org.opencds.cqf.tooling.measure.r4.R4MeasureProcessor;
 import org.opencds.cqf.tooling.measure.stu3.STU3MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshMeasureParameters;
@@ -17,8 +18,12 @@ import org.opencds.cqf.tooling.processor.IGProcessor;
 import org.opencds.cqf.tooling.utilities.*;
 import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 
+import java.io.File;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MeasureProcessor extends BaseProcessor {
     public static volatile String ResourcePrefix = "measure-";
@@ -91,46 +96,52 @@ public class MeasureProcessor extends BaseProcessor {
     private List<Measure> internalRefreshGeneratedContent(List<Measure> sourceMeasures) {
         // for each Measure, refresh the measure based on the primary measure library
         List<Measure> resources = new ArrayList<>();
-
+        MeasureRefreshProcessor processor = new MeasureRefreshProcessor();
+        LibraryManager libraryManager = getCqlProcessor().getLibraryManager();
+        CqlTranslatorOptions cqlTranslatorOptions = getCqlProcessor().getCqlTranslatorOptions();
         for (Measure measure : sourceMeasures) {
-            resources.add(refreshGeneratedContent(measure));
+            // Do not attempt to refresh if the measure does not have a library
+            if (measure.hasLibrary()) {
+                resources.add(refreshGeneratedContent(measure, processor, libraryManager, cqlTranslatorOptions));
+            } else {
+                resources.add(measure);
+            }
+
         }
 
         return resources;
     }
 
-    private Measure refreshGeneratedContent(Measure measure) {
-        MeasureRefreshProcessor processor = new MeasureRefreshProcessor();
-        LibraryManager libraryManager = getCqlProcessor().getLibraryManager();
-        CqlTranslatorOptions cqlTranslatorOptions = getCqlProcessor().getCqlTranslatorOptions();
-        // Do not attempt to refresh if the measure does not have a library
-        if (measure.hasLibrary()) {
-            String libraryUrl = ResourceUtils.getPrimaryLibraryUrl(measure, fhirContext);
-            VersionedIdentifier primaryLibraryIdentifier = CanonicalUtils.toVersionedIdentifier(libraryUrl);
-            List<CqlCompilerException> errors = new ArrayList<CqlCompilerException>();
-            CompiledLibrary CompiledLibrary = libraryManager.resolveLibrary(primaryLibraryIdentifier, errors);
-            boolean hasErrors = false;
-            if (!errors.isEmpty()) {
-                StringBuilder errorMessage = new StringBuilder();
-                for (CqlCompilerException e : errors) {
-                    errorMessage.append("\n\t").append(e.getMessage());
-                    if (e.getSeverity() == CqlCompilerException.ErrorSeverity.Error) {
-                        hasErrors = true;
-                    }
+    private Measure refreshGeneratedContent(Measure measure, MeasureRefreshProcessor processor, LibraryManager libraryManager, CqlTranslatorOptions cqlTranslatorOptions) {
+
+        String libraryUrl = ResourceUtils.getPrimaryLibraryUrl(measure, fhirContext);
+        VersionedIdentifier primaryLibraryIdentifier = CanonicalUtils.toVersionedIdentifier(libraryUrl);
+
+        List<CqlCompilerException> errors = new CopyOnWriteArrayList<>();
+        CompiledLibrary CompiledLibrary = libraryManager.resolveLibrary(primaryLibraryIdentifier, errors);
+        boolean hasErrors = false;
+
+        if (!errors.isEmpty()) {
+            StringBuilder errorMessage = new StringBuilder();
+            for (CqlCompilerException e : errors) {
+                errorMessage.append("\n\t").append(e.getMessage());
+                if (e.getSeverity() == CqlCompilerException.ErrorSeverity.Error) {
+                    hasErrors = true;
                 }
-                System.out.printf("[FAIL] CQL Processing of %s failed with %d Error(s): %s%n",
-                        measure.getName(), errors.size(),
-                        (includeErrors ?
-                                errorMessage.toString()
-                                : "")
-                );
             }
-            if (!hasErrors) {
-                System.out.printf("[SUCCESS] CQL Processing of %s completed successfully.%n",
-                        measure.getName());
-                return processor.refreshMeasure(measure, libraryManager, CompiledLibrary, cqlTranslatorOptions.getCqlCompilerOptions());
-            }
+            System.out.printf("[FAIL] CQL Processing of %s failed with %d Error(s): %s%n",
+                    measure.getName(), errors.size(),
+                    (includeErrors ?
+                            errorMessage.toString()
+                            : "")
+            );
         }
+        if (!hasErrors) {
+            System.out.printf("[SUCCESS] CQL Processing of %s completed successfully.%n",
+                    measure.getName());
+            return processor.refreshMeasure(measure, libraryManager, CompiledLibrary, cqlTranslatorOptions.getCqlCompilerOptions());
+        }
+
         return measure;
     }
 }

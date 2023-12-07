@@ -7,7 +7,6 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.hl7.fhir.convertors.advisors.impl.BaseAdvisor_40_50;
 import org.hl7.fhir.convertors.conv40_50.VersionConvertor_40_50;
@@ -32,9 +31,9 @@ public class NpmPackageManager {
     private static final Logger logger = LoggerFactory.getLogger(NpmPackageManager.class);
 
     private FilesystemPackageCacheManager pcm;
-    private CopyOnWriteArrayList<NpmPackage> npmList = new CopyOnWriteArrayList<>();
+    private List<NpmPackage> npmList = new ArrayList<>();
 
-    public CopyOnWriteArrayList<NpmPackage> getNpmList() {
+    public List<NpmPackage> getNpmList() {
         return npmList;
     }
 

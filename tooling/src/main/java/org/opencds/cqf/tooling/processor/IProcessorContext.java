@@ -5,7 +5,6 @@ import org.hl7.fhir.r5.model.ImplementationGuide;
 import org.opencds.cqf.tooling.npm.NpmPackageManager;
 
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public interface IProcessorContext {
     String getRootDir();

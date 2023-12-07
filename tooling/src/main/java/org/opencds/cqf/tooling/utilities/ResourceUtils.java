@@ -383,42 +383,63 @@ public class ResourceUtils {
       return options;
    }
 
+   public static CqlProcesses getCQLCqlTranslator(String cqlContentPath) throws CQLTranslatorException {
+      return  getCQLCqlTranslator(new File(cqlContentPath));
+   }
+
+   public static CqlProcesses getCQLCqlTranslator(File file) throws CQLTranslatorException {
+      String cqlContentPath = file.getAbsolutePath();
+      String folder = IOUtils.getParentDirectoryPath(cqlContentPath);
+      CqlTranslatorOptions options = ResourceUtils.getTranslatorOptions(folder);
+      ModelManager modelManager = new ModelManager();
+      LibraryManager libraryManager = new LibraryManager(modelManager);
+      libraryManager.getLibrarySourceLoader().registerProvider(new FhirLibrarySourceProvider());
+      libraryManager.getLibrarySourceLoader().registerProvider(new DefaultLibrarySourceProvider(Paths.get(folder)));
+      return  new CqlProcesses(options, modelManager, libraryManager, IOUtils.translate(file, modelManager, libraryManager, options));
+   }
+
+   public static class CqlProcesses {
+      CqlTranslatorOptions options;
+      ModelManager modelManager;
+      LibraryManager libraryManager;
+      CqlTranslator translator;
+
+      public CqlProcesses(CqlTranslatorOptions options,
+                          ModelManager modelManager,
+                          LibraryManager libraryManager,
+                          CqlTranslator translator) {
+         this.options = options;
+         this.modelManager = modelManager;
+         this.libraryManager = libraryManager;
+         this.translator = translator;
+      }
+
+      public CqlTranslatorOptions getOptions() {
+         return options;
+      }
+
+      public ModelManager getModelManager() {
+         return modelManager;
+      }
+
+      public LibraryManager getLibraryManager() {
+         return libraryManager;
+      }
+
+      public CqlTranslator getTranslator() {
+         return translator;
+      }
+
+
+   }
+
    private static Map<String, org.hl7.elm.r1.Library> cachedElm = new HashMap<>();
    public static org.hl7.elm.r1.Library getElmFromCql(String cqlContentPath) throws CQLTranslatorException {
       org.hl7.elm.r1.Library elm = cachedElm.get(cqlContentPath);
       if (elm != null) {
          return elm;
       }
-
-      String folder = IOUtils.getParentDirectoryPath(cqlContentPath);
-
-      CqlTranslatorOptions options = getTranslatorOptions(folder);
-
-      // Setup
-      // Construct DefaultLibrarySourceProvider
-      // Construct FhirLibrarySourceProvider
-      ModelManager modelManager = new ModelManager();
-      LibraryManager libraryManager = new LibraryManager(modelManager);
-      // if (packages != null) {
-      //    libraryManager.getLibrarySourceLoader().registerProvider(new NpmLibrarySourceProvider(packages, reader, logger));
-      // }
-      libraryManager.getLibrarySourceLoader().registerProvider(new FhirLibrarySourceProvider());
-      libraryManager.getLibrarySourceLoader().registerProvider(new DefaultLibrarySourceProvider(Paths.get(folder)));
-
-      // loadNamespaces(libraryManager);
-
-      // foreach *.cql file
-      // for (File file : new File(folder).listFiles(getCqlFilenameFilter())) {
-      //     translateFile(modelManager, libraryManager, file, options);
-      // }
-
-
-      // ModelManager modelManager = new ModelManager();
-      // GenericLibrarySourceProvider sourceProvider = new GenericLibrarySourceProvider(folder);
-      // LibraryManager libraryManager = new LibraryManager(modelManager);
-      // libraryManager.getLibrarySourceLoader().registerProvider(sourceProvider);
-
-      CqlTranslator translator = IOUtils.translate(cqlContentPath, modelManager, libraryManager, options);
+      CqlTranslator translator = getCQLCqlTranslator(cqlContentPath).getTranslator();
       elm = translator.toELM();
       cachedElm.put(cqlContentPath, elm);
       return elm;

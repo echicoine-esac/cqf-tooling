@@ -22,6 +22,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,9 +59,11 @@ public class HttpClientUtils {
      * @param resource      The FHIR resource to be posted.
      * @param encoding      The encoding type of the resource.
      * @param fhirContext   The FHIR context for the resource.
+     * @param fileLocation  Optional fileLocation indicator for identifying resources by raw filename
      * @throws IOException If an I/O error occurs during the request.
+     *
      */
-    public static void post(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext) throws IOException {
+    public static void post(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation) throws IOException {
         List<String> missingValues = new ArrayList<>();
         List<String> values = new ArrayList<>();
         validateAndAddValue(fhirServerUrl, FHIR_SERVER_URL, missingValues, values);
@@ -74,7 +77,7 @@ public class HttpClientUtils {
                     (!values.isEmpty() ? "\\nRemaining values are: " + String.join(", ", values) : ""));
         }
 
-        createPostTask(fhirServerUrl, resource, encoding, fhirContext);
+        createPostTask(fhirServerUrl, resource, encoding, fhirContext, fileLocation);
     }
 
 
@@ -115,10 +118,10 @@ public class HttpClientUtils {
      * @param encoding      The encoding type of the resource.
      * @param fhirContext   The FHIR context for the resource.
      */
-    private static void createPostTask(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext) {
+    private static void createPostTask(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation) {
         try {
             final int currentTaskIndex = tasks.size() + 1;
-            PostComponent postPojo = new PostComponent(fhirServerUrl, resource, encoding, fhirContext);
+            PostComponent postPojo = new PostComponent(fhirServerUrl, resource, encoding, fhirContext, fileLocation);
             HttpPost post = configureHttpPost(fhirServerUrl, resource, encoding, fhirContext);
 
             Callable<Void> task = createPostCallable(post, postPojo, currentTaskIndex);
@@ -188,11 +191,16 @@ public class HttpClientUtils {
                 String reasonPhrase = statusLine.getReasonPhrase();
                 String httpVersion = statusLine.getProtocolVersion().toString();
 
+                String resourceIdentifier = (postPojo.fileLocation != null ?
+                        Paths.get(postPojo.fileLocation).getFileName().toString()
+                        :
+                        postPojo.resource.getIdElement().getIdPart());
+
                 if (statusCode >= 200 && statusCode < 300) {
-                    successfulPostCalls.add(currentTaskIndex + " out of " + tasks.size() + " - Resource successfully posted to FHIR server: " + postPojo.resource.getIdElement().getIdPart());
+                    successfulPostCalls.add(currentTaskIndex + " out of " + tasks.size() + " - Resource successfully posted to FHIR server: " + resourceIdentifier);
                 } else {
                     String detailedMessage = currentTaskIndex + " out of " + tasks.size() + " - Error posting resource to FHIR server (" + postPojo.fhirServerUrl
-                            + ") " + postPojo.resource.getIdElement().getIdPart() + ": HTTP Status: " + statusCode + " " + reasonPhrase + " (HTTP Version: " + httpVersion + ")";
+                            + ") " + resourceIdentifier + ": HTTP Status: " + statusCode + " " + reasonPhrase + " (HTTP Version: " + httpVersion + ")";
 
                     failedPostCalls.add(Pair.of(detailedMessage, postPojo));
                 }
@@ -273,7 +281,7 @@ public class HttpClientUtils {
             for (String successPost : successfulPostCalls) {
                 message.append("\n").append(successPost);
             }
-            System.out.println(message.toString());
+            System.out.println(message);
             successfulPostCalls = new ArrayList<>();
 
             if (!failedPostCalls.isEmpty()) {
@@ -288,7 +296,7 @@ public class HttpClientUtils {
                     for (Pair<String, PostComponent> pair : failedPostCallList) {
                         PostComponent postPojo = pair.getRight();
                         try {
-                            post(postPojo.fhirServerUrl, postPojo.resource, postPojo.encoding, postPojo.fhirContext);
+                            post(postPojo.fhirServerUrl, postPojo.resource, postPojo.encoding, postPojo.fhirContext, postPojo.fileLocation);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -315,7 +323,7 @@ public class HttpClientUtils {
                 for (String successPost : successfulPostCalls) {
                     message.append("\n").append(successPost);
                 }
-                System.out.println(message.toString());
+                System.out.println(message);
                 successfulPostCalls = new ArrayList<>();
             }
 
@@ -331,7 +339,7 @@ public class HttpClientUtils {
                 for (String failedPost : failedMessages) {
                     message.append("\n").append(failedPost);
                 }
-                System.out.println(message.toString());
+                System.out.println(message);
             }
 
         } finally {
@@ -342,7 +350,6 @@ public class HttpClientUtils {
 
     /**
      * Pauses the current thread's execution for a specified duration.
-     *
      * This method causes the current thread to sleep for the given duration, allowing a pause in execution. If an
      * interruption occurs during the sleep, it is logged as an exception.
      *
@@ -405,11 +412,14 @@ public class HttpClientUtils {
         IOUtils.Encoding encoding;
         FhirContext fhirContext;
 
-        public PostComponent(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext) {
+        String fileLocation;
+
+        public PostComponent(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation) {
             this.fhirServerUrl = fhirServerUrl;
             this.resource = resource;
             this.encoding = encoding;
             this.fhirContext = fhirContext;
+            this.fileLocation = fileLocation;
         }
     }
 

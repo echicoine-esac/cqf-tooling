@@ -1,5 +1,6 @@
 package org.opencds.cqf.tooling.common;
 
+import org.apache.poi.ss.formula.functions.T;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,17 +23,16 @@ public class ThreadUtils {
      *
      * @param tasks A list of Callable tasks to execute concurrently.
      */
-    public static void executeTasks(List<Callable<Void>> tasks) {
+    public static void executeTasks(List<Callable<Void>> tasks, ExecutorService executor) {
         if (tasks == null || tasks.isEmpty()){
             return;
         }
 
         //let OS handle threading:
-        ExecutorService executorService = Executors.newCachedThreadPool();
         try {
             List<Future<Void>> futures = new ArrayList<>();
             for (Callable<Void> task : tasks) {
-                futures.add(executorService.submit(task));
+                futures.add(executor.submit(task));
             }
 
             // Wait for all tasks to complete
@@ -42,12 +42,13 @@ public class ThreadUtils {
         } catch (Exception e) {
             logger.error("ThreadUtils.executeTasks", e);
         } finally {
-            executorService.shutdown();
+            executor.shutdown();
         }
     }
-
+    public static void executeTasks(List<Callable<Void>> tasks) {
+        executeTasks(tasks, Executors.newCachedThreadPool());
+    }
     public static void executeTasks(Queue<Callable<Void>> callables) {
-
-        executeTasks(new ArrayList<>(callables));
+        executeTasks(new ArrayList<>(callables), Executors.newCachedThreadPool());
     }
 }

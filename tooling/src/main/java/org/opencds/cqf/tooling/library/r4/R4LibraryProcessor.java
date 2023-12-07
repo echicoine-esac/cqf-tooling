@@ -148,7 +148,7 @@ public class R4LibraryProcessor extends LibraryProcessor {
         } catch (Exception ex) {
             logMessage(String.format("Error reading library: %s. Error: %s", libraryFilePath, ex.getMessage()));
         }
-        return libraries
+        return libraries;
     }
 
     @Override

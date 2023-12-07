@@ -52,7 +52,6 @@ public class LibraryProcessor extends BaseProcessor {
 
     private static Pattern pattern;
 
-
     private static Pattern getPattern() {
         if (pattern == null) {
             String regex = "^[a-zA-Z]+[a-zA-Z0-9_\\-\\.]*";

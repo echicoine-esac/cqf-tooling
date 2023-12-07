@@ -3,6 +3,7 @@ package org.opencds.cqf.tooling.processor;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.fhir.ucum.UcumEssenceService;
 import org.fhir.ucum.UcumException;
@@ -54,7 +55,7 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
         return packageId;
     }
 
-    protected volatile String canonicalBase;
+    protected String canonicalBase;
 
     public String getCanonicalBase() {
         return canonicalBase;
@@ -167,7 +168,8 @@ public class BaseProcessor implements IProcessorContext, IWorkerContext.ILogging
             if (packageManager == null) {
                 throw new IllegalStateException("packageManager is null. It should be initialized at this point.");
             }
-            cqlProcessor = new CqlProcessor(packageManager.getNpmList(), binaryPaths, reader, this, ucumService,
+            cqlProcessor = new CqlProcessor(new CopyOnWriteArrayList<>(packageManager.getNpmList()),
+                    new CopyOnWriteArrayList<>(binaryPaths), reader, this, ucumService,
                     packageId, canonicalBase, includeErrors);
         }
 

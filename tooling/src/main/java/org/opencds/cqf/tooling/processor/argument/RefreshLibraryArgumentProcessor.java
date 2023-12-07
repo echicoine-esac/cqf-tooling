@@ -25,6 +25,8 @@ public class RefreshLibraryArgumentProcessor {
     public static final String[] OUTPUT_ENCODING = {"e", "encoding"};
     public static final String[] VERSIONED_OPTIONS = {"v", "versioned"};
 
+    public static final String[] SHOULD_INCLUDE_ERRORS = { "x", "include-errors" };
+
     @SuppressWarnings("unused")
     public OptionParser build() {
         OptionParser parser = new OptionParser();
@@ -47,6 +49,7 @@ public class RefreshLibraryArgumentProcessor {
 
         parser.acceptsAll(asList(OPERATION_OPTIONS),"The operation to run.");
         parser.acceptsAll(asList(VERSIONED_OPTIONS),"If omitted resources must be uniquely named.");
+        parser.acceptsAll(asList(SHOULD_INCLUDE_ERRORS),"Specifies whether to show errors during library, measure, and test case refresh.");
 
         OptionSpec<Void> help = parser.acceptsAll(asList(ArgUtils.HELP_OPTIONS), "Show this help page").forHelp();
 

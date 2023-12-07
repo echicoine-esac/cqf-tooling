@@ -147,8 +147,12 @@ public class TestCaseProcessor
 
                             // Need to output the Group if it exists
                             if (testGroup != null) {
+                                String groupFileName = "Group-" + measureName;
                                 IOUtils.writeResource(testGroup, testArtifactPath, encoding, fhirContext, true,
-                                        "Group-" + measureName);
+                                        groupFileName);
+                                System.out.printf("Group file created: %s%n",
+                                        groupFileName
+                                );
                             }
                         }
                         //task requires return statement

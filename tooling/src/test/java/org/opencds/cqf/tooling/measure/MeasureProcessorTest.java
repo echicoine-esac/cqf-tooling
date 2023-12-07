@@ -12,7 +12,7 @@ import ca.uhn.fhir.context.FhirContext;
 
 public abstract class MeasureProcessorTest extends RefreshTest {
 
-    private final MeasureProcessor measureProcessor;
+    private MeasureProcessor measureProcessor;
     @BeforeMethod
     public void setUp() throws Exception {
         //IOUtils.resourceDirectories = new ArrayList<String>();

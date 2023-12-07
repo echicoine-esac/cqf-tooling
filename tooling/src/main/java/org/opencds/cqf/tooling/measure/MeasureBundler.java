@@ -39,10 +39,9 @@ public class MeasureBundler extends AbstractBundler {
             if (!(filesInDir == null || filesInDir.length == 0)) {
                 for (File file : filesInDir) {
                     try {
-                        IBaseResource resource = IOUtils.readResource(file.getAbsolutePath(), fhirContext, true);
                         //ensure the resource can be posted
 //                            if (BundleUtils.resourceIsTransactionBundle(resource)) {
-                        BundleUtils.postBundle(encoding, fhirContext, fhirUri, resource);
+                        BundleUtils.postBundle(encoding, fhirContext, fhirUri, file.getAbsolutePath());
 //                            }
                     } catch (Exception e) {
                         //resource is likely not IBaseResource

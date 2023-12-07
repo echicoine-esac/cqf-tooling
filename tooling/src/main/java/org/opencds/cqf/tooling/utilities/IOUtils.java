@@ -27,6 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -570,12 +571,17 @@ public class IOUtils {
 
     private static final Map<String, CqlTranslator> cachedTranslator = new LinkedHashMap<>();
     public static CqlTranslator translate(String cqlContentPath, ModelManager modelManager, LibraryManager libraryManager, CqlTranslatorOptions options) throws CQLTranslatorException {
+         File cqlFile = new File(cqlContentPath);
+         return translate(cqlFile, modelManager, libraryManager, options);
+    }
+
+    public static CqlTranslator translate(File cqlFile, ModelManager modelManager, LibraryManager libraryManager, CqlTranslatorOptions options) throws CQLTranslatorException {
+        String cqlContentPath = cqlFile.getAbsolutePath();
         CqlTranslator translator = cachedTranslator.get(cqlContentPath);
         if (translator != null) {
             return translator;
         }
         try {
-            File cqlFile = new File(cqlContentPath);
             if (!cqlFile.getName().endsWith(".cql")) {
                 throw new CQLTranslatorException("cqlContentPath must be a path to a .cql file");
             }
@@ -583,7 +589,7 @@ public class IOUtils {
             translator = CqlTranslator.fromFile(cqlFile, libraryManager);
 
             if (!translator.getErrors().isEmpty()) {
-                throw new CQLTranslatorException(CqlProcessor.listTranslatorErrors(translator));
+                throw new CQLTranslatorException(CqlProcessor.listTranslatorErrors(new CopyOnWriteArrayList<>(translator.getErrors())));
             }
             cachedTranslator.put(cqlContentPath, translator);
             return translator;

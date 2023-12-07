@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,8 +57,8 @@ public class IGUtils {
     @rootDir: The root directory of the implementation guide source
     @sourceIg: The implementationGuide (as an R5 resource)
      */
-    public static CopyOnWriteArrayList<String> extractBinaryPaths(String rootDir, ImplementationGuide sourceIg) {
-        CopyOnWriteArrayList<String> result = new CopyOnWriteArrayList<>();
+    public static List<String> extractBinaryPaths(String rootDir, ImplementationGuide sourceIg) {
+        List<String> result = new ArrayList<>();
 
         // Although this is the correct way to read the cql path from an implementation guide,
         // the tooling cannot use this method, because if it's present in the IG, the publisher will

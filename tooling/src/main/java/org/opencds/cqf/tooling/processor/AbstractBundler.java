@@ -398,10 +398,11 @@ public abstract class AbstractBundler {
 
     private void persistBundle(String igPath, String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, List<IBaseResource> resources, String fhirUri, Boolean addBundleTimestamp) {
         IOUtils.initializeDirectory(bundleDestPath);
+
         Object bundle = BundleUtils.bundleArtifacts(libraryName, resources, fhirContext, addBundleTimestamp, this.getIdentifiers());
         IOUtils.writeBundle(bundle, bundleDestPath, encoding, fhirContext);
 
-        BundleUtils.postBundle(encoding, fhirContext, fhirUri, (IBaseResource) bundle);
+        BundleUtils.postBundle(encoding, fhirContext, fhirUri, (IBaseResource) bundle, bundleDestPath);
     }
 
     protected abstract void persistFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri);

@@ -55,7 +55,7 @@ public class R4MeasureProcessor extends MeasureProcessor {
             List<Callable<Void>> loadMeasureTasks = new ArrayList<>();
             for (String path : IOUtils.getMeasurePaths(this.fhirContext)) {
                 loadMeasureTasks.add(() -> {
-                    loadMeasure(fileMap, measures, new File(path));
+                    measures.addAll(loadMeasure(fileMap, new File(path)));
                     //task requires return statement
                     return null;
                 });
@@ -69,7 +69,7 @@ public class R4MeasureProcessor extends MeasureProcessor {
             for (File libraryFile : file.listFiles()) {
                 loadXmlOrJsonMeasureTasks.add(() -> {
                     if(IOUtils.isXMLOrJson(measurePath, libraryFile.getName())) {
-                        loadMeasure(fileMap, measures, libraryFile);
+                        measures.addAll(loadMeasure(fileMap, libraryFile));
                     }
                     //task requires return statement
                     return null;
@@ -79,7 +79,7 @@ public class R4MeasureProcessor extends MeasureProcessor {
             ThreadUtils.executeTasks(loadXmlOrJsonMeasureTasks);
         }
         else {
-            loadMeasure(fileMap, measures, file);
+            measures.addAll(loadMeasure(fileMap, file));
         }
 
         List<String> refreshedMeasureNames = new CopyOnWriteArrayList<>();
@@ -133,7 +133,8 @@ public class R4MeasureProcessor extends MeasureProcessor {
         return refreshedMeasureNames;
     }
 
-    private void loadMeasure(Map<String, String> fileMap, List<org.hl7.fhir.r5.model.Measure> measures, File measureFile) {
+    private List<org.hl7.fhir.r5.model.Measure> loadMeasure(Map<String, String> fileMap,File measureFile) {
+        List<org.hl7.fhir.r5.model.Measure> measures = new ArrayList<>();
         try {
             org.hl7.fhir.r4.model.Resource resource = FormatUtilities.loadFile(measureFile.getAbsolutePath());
             VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
@@ -143,6 +144,7 @@ public class R4MeasureProcessor extends MeasureProcessor {
         } catch (Exception ex) {
             logMessage(String.format("Error reading measure: %s. Error: %s", measureFile.getAbsolutePath(), ex.getMessage()));
         }
+        return measures;
     }
 
     @Override

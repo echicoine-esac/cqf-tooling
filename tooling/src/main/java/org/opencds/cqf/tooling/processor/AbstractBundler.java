@@ -255,9 +255,12 @@ public abstract class AbstractBundler {
 
 
                     } catch (Exception e) {
-                        failedExceptionMessages.put(resourceSourcePath, e.getMessage());
+                        if (resourceSourcePath == null){
+                            failedExceptionMessages.put(resourceEntry.getValue().getIdElement().getIdPart(), e.getMessage());
+                        }else {
+                            failedExceptionMessages.put(resourceSourcePath, e.getMessage());
+                        }
                     }
-
 
                     processedResources.add(resourceSourcePath);
 

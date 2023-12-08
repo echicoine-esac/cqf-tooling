@@ -14,6 +14,8 @@ import java.util.concurrent.Future;
 public class ThreadUtils {
     protected static final Logger logger = LoggerFactory.getLogger(ThreadUtils.class);
 
+    private static List<ExecutorService> runningExecutors = new ArrayList<>();
+
     /**
      * Executes a list of tasks concurrently using a thread pool.
      * <p>
@@ -27,6 +29,8 @@ public class ThreadUtils {
         if (tasks == null || tasks.isEmpty()) {
             return;
         }
+
+        runningExecutors.add(executor);
 
         List<Callable<Void>> retryTasks = new ArrayList<>();
 
@@ -49,6 +53,7 @@ public class ThreadUtils {
             logger.error("ThreadUtils.executeTasks: ", e);
         } finally {
             if (retryTasks.isEmpty()) {
+                runningExecutors.remove(executor);
                 executor.shutdown();
             }else{
                 executeTasks(retryTasks, executor);
@@ -62,5 +67,12 @@ public class ThreadUtils {
 
     public static void executeTasks(Queue<Callable<Void>> callables) {
         executeTasks(new ArrayList<>(callables), Executors.newCachedThreadPool());
+    }
+
+    public static void shutdownRunningExecutors() {
+        for (ExecutorService es : runningExecutors){
+            es.shutdownNow();
+        }
+        runningExecutors = new ArrayList<>();
     }
 }

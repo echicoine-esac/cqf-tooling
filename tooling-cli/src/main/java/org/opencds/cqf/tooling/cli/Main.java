@@ -279,10 +279,8 @@ public class Main {
 //    }
 
     public static void main(String[] args) {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\r\nShutting down...\r\n");
-            ThreadUtils.shutdownRunningExecutors();
-        }));
+        //ensure any and all executors are shutdown cleanly when app is shutdown:
+        Runtime.getRuntime().addShutdownHook(new Thread(ThreadUtils::shutdownRunningExecutors));
 
         if (args.length == 0) {
             System.err.println("cqf-tooling version: " + Main.class.getPackage().getImplementationVersion());

@@ -71,6 +71,7 @@ public class ThreadUtils {
 
     public static void shutdownRunningExecutors() {
         if (runningExecutors.isEmpty()) return;
+        System.out.println("\r\nShutting down running tasks...\r\n");
         for (ExecutorService es : runningExecutors){
             es.shutdownNow();
         }

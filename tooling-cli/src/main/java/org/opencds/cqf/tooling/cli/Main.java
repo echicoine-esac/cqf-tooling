@@ -280,7 +280,7 @@ public class Main {
 
     public static void main(String[] args) {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("\r\nShutting down running tasks...\r\n");
+            System.out.println("\r\nShutting down...\r\n");
             ThreadUtils.shutdownRunningExecutors();
         }));
 

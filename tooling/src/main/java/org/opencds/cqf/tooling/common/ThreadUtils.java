@@ -70,6 +70,7 @@ public class ThreadUtils {
     }
 
     public static void shutdownRunningExecutors() {
+        if (runningExecutors.isEmpty()) return;
         for (ExecutorService es : runningExecutors){
             es.shutdownNow();
         }

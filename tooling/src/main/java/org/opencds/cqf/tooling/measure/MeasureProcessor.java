@@ -2,27 +2,21 @@ package org.opencds.cqf.tooling.measure;
 
 import ca.uhn.fhir.context.FhirContext;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.velocity.util.ArrayListWrapper;
 import org.cqframework.cql.cql2elm.*;
 import org.cqframework.cql.cql2elm.model.CompiledLibrary;
-import org.cqframework.cql.cql2elm.quick.FhirLibrarySourceProvider;
 import org.hl7.elm.r1.VersionedIdentifier;
 import org.hl7.fhir.r5.model.Measure;
-import org.opencds.cqf.tooling.common.ThreadUtils;
-import org.opencds.cqf.tooling.cql.exception.CQLTranslatorException;
 import org.opencds.cqf.tooling.measure.r4.R4MeasureProcessor;
 import org.opencds.cqf.tooling.measure.stu3.STU3MeasureProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshMeasureParameters;
 import org.opencds.cqf.tooling.processor.BaseProcessor;
+import org.opencds.cqf.tooling.processor.CqlProcessor;
 import org.opencds.cqf.tooling.processor.IGProcessor;
 import org.opencds.cqf.tooling.utilities.*;
 import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 
-import java.io.File;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MeasureProcessor extends BaseProcessor {
@@ -119,28 +113,13 @@ public class MeasureProcessor extends BaseProcessor {
 
         List<CqlCompilerException> errors = new CopyOnWriteArrayList<>();
         CompiledLibrary CompiledLibrary = libraryManager.resolveLibrary(primaryLibraryIdentifier, errors);
-        boolean hasErrors = false;
 
-        if (!errors.isEmpty()) {
-            StringBuilder errorMessage = new StringBuilder();
-            for (CqlCompilerException e : errors) {
-                //ensure no blank lines:
-                String error = e.getMessage().replace("\n", "").replace("\r", "");
-                errorMessage.append("\n\t").append(error);
-                if (e.getSeverity() == CqlCompilerException.ErrorSeverity.Error) {
-                    hasErrors = true;
-                }
-            }
-            System.out.printf("[FAIL] CQL Processing of %s failed with %d Error(s): %s%n",
-                    measure.getName(), errors.size(),
-                    (includeErrors ?
-                            errorMessage.toString()
-                            : "")
-            );
-        }
-        if (!hasErrors) {
-            System.out.printf("[SUCCESS] CQL Processing of %s completed successfully.%n",
-                    measure.getName());
+        System.out.println(CqlProcessor.buildCompleteStatusMessage(errors, measure.getName(), includeErrors));
+
+        boolean hasSevereErrors = CqlProcessor.hasSevereErrors(errors);
+
+        //refresh measures without severe errors:
+        if (!hasSevereErrors) {
             return processor.refreshMeasure(measure, libraryManager, CompiledLibrary, cqlTranslatorOptions.getCqlCompilerOptions());
         }
 

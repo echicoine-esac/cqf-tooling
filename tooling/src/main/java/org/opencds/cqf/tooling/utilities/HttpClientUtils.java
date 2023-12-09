@@ -315,10 +315,10 @@ public class HttpClientUtils {
             Collections.sort(successfulPostCalls);
 
             StringBuilder message = new StringBuilder();
-            message.append("\r\n").append(successfulPostCalls.size()).append(" resources successfully posted.");
             for (String successPost : successfulPostCalls) {
                 message.append("\n").append(successPost);
             }
+            message.append("\r\n").append(successfulPostCalls.size()).append(" resources successfully posted.");
             System.out.println(message);
             successfulPostCalls = new ArrayList<>();
 
@@ -357,26 +357,26 @@ public class HttpClientUtils {
 
             if (!successfulPostCalls.isEmpty()) {
                 message = new StringBuilder();
-                message.append("\r\n").append(successfulPostCalls.size()).append(" resources successfully posted.");
                 for (String successPost : successfulPostCalls) {
                     message.append("\n").append(successPost);
                 }
+                message.append("\r\n").append(successfulPostCalls.size()).append(" resources successfully posted.");
                 System.out.println(message);
                 successfulPostCalls = new ArrayList<>();
             }
 
             if (!failedPostCalls.isEmpty()) {
-                System.out.println("\n" + failedPostCalls.size() + " task(s) still failed to POST: ");
                 List<String> failedMessages = new ArrayList<>();
                 for (Pair<String, PostComponent> pair : failedPostCalls) {
                     failedMessages.add(pair.getLeft());
                 }
                 Collections.sort(failedMessages);
                 message = new StringBuilder();
-                message.append("\r\n").append(failedMessages.size()).append(" resources failed to post.");
+
                 for (String failedPost : failedMessages) {
                     message.append("\n").append(failedPost);
                 }
+                message.append("\r\n").append(failedMessages.size()).append(" resources failed to post.");
                 System.out.println(message);
             }
 

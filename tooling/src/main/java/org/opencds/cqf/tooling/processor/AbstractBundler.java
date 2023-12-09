@@ -2,10 +2,11 @@ package org.opencds.cqf.tooling.processor;
 
 import ca.uhn.fhir.context.FhirContext;
 import org.apache.commons.io.FilenameUtils;
+import org.cqframework.cql.cql2elm.CqlCompilerException;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.opencds.cqf.tooling.common.ThreadUtils;
-import org.opencds.cqf.tooling.cql.exception.CQLTranslatorException;
+import org.opencds.cqf.tooling.cql.exception.CqlTranslatorException;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
 import org.opencds.cqf.tooling.utilities.BundleUtils;
 import org.opencds.cqf.tooling.utilities.IOUtils;
@@ -14,14 +15,10 @@ import org.opencds.cqf.tooling.utilities.ResourceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
 
 /**
  * An abstract base class for processors that handle the bundling of various types of resources within an ig.
@@ -81,21 +78,20 @@ public abstract class AbstractBundler {
     }
 
 
-
     /**
      * Bundles resources within an Implementation Guide based on specified options.
      *
-     * @param refreshedLibraryNames A list of refreshed library names.
-     * @param igPath               The path to the IG.
-     * @param binaryPaths          The list of binary paths.
-     * @param includeDependencies  Flag indicating whether to include dependencies.
-     * @param includeTerminology   Flag indicating whether to include terminology.
+     * @param refreshedLibraryNames   A list of refreshed library names.
+     * @param igPath                  The path to the IG.
+     * @param binaryPaths             The list of binary paths.
+     * @param includeDependencies     Flag indicating whether to include dependencies.
+     * @param includeTerminology      Flag indicating whether to include terminology.
      * @param includePatientScenarios Flag indicating whether to include patient scenarios.
-     * @param includeVersion       Flag indicating whether to include version information.
-     * @param addBundleTimestamp   Flag indicating whether to add a timestamp to the bundle.
-     * @param fhirContext          The FHIR context.
-     * @param fhirUri              The FHIR server URI.
-     * @param encoding             The encoding type for processing resources.
+     * @param includeVersion          Flag indicating whether to include version information.
+     * @param addBundleTimestamp      Flag indicating whether to add a timestamp to the bundle.
+     * @param fhirContext             The FHIR context.
+     * @param fhirUri                 The FHIR server URI.
+     * @param encoding                The encoding type for processing resources.
      */
     public void bundleResources(ArrayList<String> refreshedLibraryNames, String igPath, List<String> binaryPaths, Boolean includeDependencies,
                                 Boolean includeTerminology, Boolean includePatientScenarios, Boolean includeVersion, Boolean addBundleTimestamp,
@@ -110,7 +106,7 @@ public abstract class AbstractBundler {
         //for keeping track of failed reasons:
         final Map<String, String> failedExceptionMessages = new ConcurrentHashMap<>();
 
-        final Map<String, Set<String>> cqlTranslatorErrorMessages = new ConcurrentHashMap<>();
+        final Map<String, List<CqlCompilerException>> cqlTranslatorErrorMessages = new ConcurrentHashMap<>();
 
         int totalResources = resourcesMap.size();
 
@@ -192,16 +188,11 @@ public abstract class AbstractBundler {
                         }
 
                         if (includeTerminology) {
-                            //throws CQLTranslatorException if failed, which will be logged and reported it in the final summary
+                            //throws CQLTranslatorException if failed with severe errors, which will be logged and reported it in the final summary
                             try {
                                 ValueSetsProcessor.bundleValueSets(cqlLibrarySourcePath, igPath, fhirContext, resources, encoding, includeDependencies, includeVersion);
-                            }catch (CQLTranslatorException warn){
-                                if (cqlTranslatorErrorMessages.containsKey(primaryLibraryName)){
-                                    Set<String> existingMessages = cqlTranslatorErrorMessages.get(primaryLibraryName);
-                                    existingMessages.addAll(warn.getErrors());
-                                }else{
-                                    cqlTranslatorErrorMessages.put(primaryLibraryName, warn.getErrors());
-                                }
+                            } catch (CqlTranslatorException cqlTranslatorException) {
+                                cqlTranslatorErrorMessages.put(primaryLibraryName, cqlTranslatorException.getErrors());
                             }
                         }
 
@@ -255,9 +246,9 @@ public abstract class AbstractBundler {
 
 
                     } catch (Exception e) {
-                        if (resourceSourcePath == null){
+                        if (resourceSourcePath == null) {
                             failedExceptionMessages.put(resourceEntry.getValue().getIdElement().getIdPart(), e.getMessage());
-                        }else {
+                        } else {
                             failedExceptionMessages.put(resourceSourcePath, e.getMessage());
                         }
                     }
@@ -266,7 +257,7 @@ public abstract class AbstractBundler {
 
                     synchronized (this) {
                         double percentage = (double) processedResources.size() / totalResources * 100;
-                        System.out.println("[SUCCESS] " + getResourceProcessorType() + " " + resourceEntry.getKey() + " bundled. Progress: " + String.format("%.2f%%", percentage));
+                        System.out.println("[SUCCESS] " + getResourceProcessorType() + " Bundled: " + resourceEntry.getKey() + ". Overall Progress: " + String.format("%.2f%%", percentage));
                     }
                     //task requires return statement
                     return null;
@@ -320,29 +311,20 @@ public abstract class AbstractBundler {
         //Exceptions stemming from IOUtils.translate that did not prevent process from completing for file:
         if (!cqlTranslatorErrorMessages.isEmpty()) {
             message.append(NEWLINE).append(cqlTranslatorErrorMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered CQL translator errors:");
+
             for (String library : cqlTranslatorErrorMessages.keySet()) {
-                Set<String> translatorWarningMessagesSet = cqlTranslatorErrorMessages.get(library);
-
-                message.append(NEWLINE_INDENT)
-                        .append("CQL Processing of ")
-                        .append(library)
-                        .append(" failed with ")
-                        .append(translatorWarningMessagesSet.size())
-                        .append(" Error(s) ");
-
-                if (includeErrors) {
-                    message.append(getJoinedErrorList(translatorWarningMessagesSet));
-                }
-
+                message.append(NEWLINE_INDENT).append(
+                        CqlProcessor.buildCompleteStatusMessage(cqlTranslatorErrorMessages.get(library), library, includeErrors, false)
+                ).append(NEWLINE);
             }
         }
 
         System.out.println(message.toString());
     }
 
-    private static String getJoinedErrorList(Set<String> translatorWarningMessages) {
-        return ": " + String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages));
-    }
+//    private static String getJoinedErrorList(Set<String> translatorWarningMessages) {
+//        return ": " + String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages));
+//    }
 
     private String getResourcePrefix() {
         return getResourceProcessorType().toLowerCase() + "-";
@@ -352,7 +334,7 @@ public abstract class AbstractBundler {
 
     private String bundleFiles(String igPath, String bundleDestPath, String primaryLibraryName, List<String> binaryPaths, String resourceFocusSourcePath,
                                String librarySourcePath, FhirContext fhirContext, IOUtils.Encoding encoding, Boolean includeTerminology, Boolean includeDependencies, Boolean includePatientScenarios,
-                               Boolean includeVersion, Boolean addBundleTimestamp, Map<String, Set<String>> translatorWarningMessages) {
+                               Boolean includeVersion, Boolean addBundleTimestamp, Map<String, List<CqlCompilerException>> translatorWarningMessages) {
         String bundleMessage = "";
 
         String bundleDestFilesPath = FilenameUtils.concat(bundleDestPath, primaryLibraryName + "-" + IGBundleProcessor.bundleFilesPathElement);
@@ -376,13 +358,8 @@ public abstract class AbstractBundler {
                     Object bundle = BundleUtils.bundleArtifacts(ValueSetsProcessor.getId(primaryLibraryName), new ArrayList<IBaseResource>(valueSets.values()), fhirContext, addBundleTimestamp, this.getIdentifiers());
                     IOUtils.writeBundle(bundle, bundleDestFilesPath, encoding, fhirContext);
                 }
-            }catch (CQLTranslatorException warn){
-                if (translatorWarningMessages.containsKey(primaryLibraryName)){
-                    Set<String> existingMessages = translatorWarningMessages.get(primaryLibraryName);
-                    existingMessages.addAll(warn.getErrors());
-                }else{
-                    translatorWarningMessages.put(primaryLibraryName, warn.getErrors());
-                }
+            } catch (CqlTranslatorException cqlTranslatorException) {
+                translatorWarningMessages.put(primaryLibraryName, cqlTranslatorException.getErrors());
             }
         }
 

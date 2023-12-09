@@ -20,7 +20,7 @@ import org.hl7.fhir.utilities.validation.ValidationMessage;
 import org.hl7.fhir.utilities.validation.ValidationMessage.IssueSeverity;
 import org.hl7.fhir.utilities.validation.ValidationMessage.IssueType;
 import org.opencds.cqf.tooling.common.ThreadUtils;
-import org.opencds.cqf.tooling.cql.exception.CQLTranslatorException;
+import org.opencds.cqf.tooling.cql.exception.CqlTranslatorException;
 import org.opencds.cqf.tooling.npm.ILibraryReader;
 import org.opencds.cqf.tooling.npm.NpmLibrarySourceProvider;
 import org.opencds.cqf.tooling.npm.NpmModelInfoProvider;
@@ -365,90 +365,69 @@ public class CqlProcessor {
         }
     }
 
-    private void translateFile(File file ) {
+    private void translateFile(File file) {
         CqlSourceFileInformation result = new CqlSourceFileInformation();
         fileMap.put(file.getAbsoluteFile().toString(), result);
 
         try {
+            //will throw CQLTranslatorException if ErrorSeverity.Error exists
             ResourceUtils.CqlProcesses cqlProcesses = ResourceUtils.getCQLCqlTranslator(file);
-            // translate toXML
+
             CqlTranslator translator = cqlProcesses.getTranslator();
             CqlCompilerOptions options = cqlProcesses.getOptions().getCqlCompilerOptions();
             LibraryManager libraryManager = cqlProcesses.getLibraryManager();
-
 
             // record errors and warnings
             for (CqlCompilerException exception : translator.getExceptions()) {
                 result.getErrors().add(exceptionToValidationMessage(file, exception));
             }
 
-            if (!translator.getErrors().isEmpty()) {
-                result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(),
-                        String.format("CQL Processing failed with (%d) errors.", translator.getErrors().size()), IssueSeverity.ERROR));
-                logger.logMessage(String.format("Translation failed with (%d) errors; see the error log for more information.", translator.getErrors().size()));
+            try {
+                // convert to base64 bytes
+                // NOTE: Publication tooling requires XML content
+                result.setElm(translator.toXml().getBytes());
+                result.setIdentifier(translator.toELM().getIdentifier());
+                result.setJsonElm(translator.toJson().getBytes());
 
-                for (CqlCompilerException error : translator.getErrors()) {
-                    logger.logMessage(String.format("Error: %s", error.getMessage()));
+                // Add the translated library to the library manager (NOTE: This should be a "cacheLibrary" call on the LibraryManager, available in 1.5.3+)
+                // Without this, the data requirements processor will try to load the current library, resulting in a re-translation
+                CompiledLibrary compiledLibrary = translator.getTranslatedLibrary();
+                libraryManager.getCompiledLibraries().put(compiledLibrary.getIdentifier(), compiledLibrary);
+
+                DataRequirementsProcessor drp = new DataRequirementsProcessor();
+                org.hl7.fhir.r5.model.Library requirementsLibrary =
+                        drp.gatherDataRequirements(libraryManager, translator.getTranslatedLibrary(), options, null, false);
+
+
+                // TODO: Report context, requires 1.5 translator (ContextDef)
+                // NOTE: In STU3, only Patient context is supported
+
+                // TODO: Extract direct reference code data
+                //result.extension.addAll(requirementsLibrary.getExtensionsByUrl("http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/cqfm-directReferenceCode"));
+
+                // Extract relatedArtifact data (models, libraries, code systems, and value sets)
+                result.relatedArtifacts.addAll(requirementsLibrary.getRelatedArtifact());
+
+                // Extract parameter data and validate result types are supported types
+                result.parameters.addAll(requirementsLibrary.getParameter());
+                for (ValidationMessage paramMessage : drp.getValidationMessages()) {
+                    result.getErrors().add(new ValidationMessage(paramMessage.getSource(), paramMessage.getType(), file.getName(),
+                            paramMessage.getMessage(), paramMessage.getLevel()));
                 }
+
+                // Extract dataRequirement data
+                result.dataRequirements.addAll(requirementsLibrary.getDataRequirement());
+
+                System.out.println(CqlProcessor.buildCompleteStatusMessage(translator.getErrors(), file.getName(), includeErrors));
+            } catch (Exception ex) {
+                logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", file.getAbsolutePath(), ex.getMessage()));
             }
-            else {
-                try {
-                    // convert to base64 bytes
-                    // NOTE: Publication tooling requires XML content
-                    result.setElm(translator.toXml().getBytes());
-                    result.setIdentifier(translator.toELM().getIdentifier());
-                    result.setJsonElm(translator.toJson().getBytes());
-
-                    // Add the translated library to the library manager (NOTE: This should be a "cacheLibrary" call on the LibraryManager, available in 1.5.3+)
-                    // Without this, the data requirements processor will try to load the current library, resulting in a re-translation
-                    CompiledLibrary compiledLibrary = translator.getTranslatedLibrary();
-                    libraryManager.getCompiledLibraries().put(compiledLibrary.getIdentifier(), compiledLibrary);
-
-                    DataRequirementsProcessor drp = new DataRequirementsProcessor();
-                    org.hl7.fhir.r5.model.Library requirementsLibrary =
-                            drp.gatherDataRequirements(libraryManager, translator.getTranslatedLibrary(), options, null, false);
-
-
-                    // TODO: Report context, requires 1.5 translator (ContextDef)
-                    // NOTE: In STU3, only Patient context is supported
-
-                    // TODO: Extract direct reference code data
-                    //result.extension.addAll(requirementsLibrary.getExtensionsByUrl("http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/cqfm-directReferenceCode"));
-
-                    // Extract relatedArtifact data (models, libraries, code systems, and value sets)
-                    result.relatedArtifacts.addAll(requirementsLibrary.getRelatedArtifact());
-
-                    // Extract parameter data and validate result types are supported types
-                    result.parameters.addAll(requirementsLibrary.getParameter());
-                    for (ValidationMessage paramMessage : drp.getValidationMessages()) {
-                        result.getErrors().add(new ValidationMessage(paramMessage.getSource(), paramMessage.getType(), file.getName(),
-                                paramMessage.getMessage(), paramMessage.getLevel()));
-                    }
-
-                    // Extract dataRequirement data
-                    result.dataRequirements.addAll(requirementsLibrary.getDataRequirement());
-
-                    System.out.printf("[SUCCESS] CQL Processing of %s completed successfully.%n", file.getName());
-                } catch (Exception ex) {
-                    logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", file.getAbsolutePath(), ex.getMessage()));
-                }
-            }
-        } catch (CQLTranslatorException e) {
+        } catch (CqlTranslatorException e) {
 
             result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(),
                     String.format("CQL Processing failed with (%d) errors.", e.getErrors().size()), IssueSeverity.ERROR));
 
-            //clean reporting of errors with file name :
-            System.out.printf("[FAIL] CQL Processing of %s failed with %d Error(s) %s%n",
-                    file.getName(), e.getErrors().size(),
-
-                    (includeErrors ?
-                            (e.getErrors()).stream()
-                                    .map(error -> "\n\t" + error)
-                                    .collect(StringBuilder::new, StringBuilder::append, StringBuilder::append)
-                            : ""));
-
-//            result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(), "CQL Processing failed with exception: " + e.getMessage(), IssueSeverity.ERROR));
+            System.out.println(CqlProcessor.buildCompleteStatusMessage(e.getErrors(), file.getName(), includeErrors));
         }
 
     }
@@ -507,18 +486,89 @@ public class CqlProcessor {
         return new VersionedIdentifier().withId(name).withSystem(system);
     }
 
-    public static CopyOnWriteArrayList<String> listTranslatorErrors(CopyOnWriteArrayList<CqlCompilerException> translatorErrors) {
-        CopyOnWriteArrayList<String> errors = new CopyOnWriteArrayList<>();
-
+    public static List<String> listTranslatorErrors(List<CqlCompilerException> translatorErrors) {
+        List<String> errors = new CopyOnWriteArrayList<>();
         for (CqlCompilerException error : translatorErrors) {
-            errors.add((error.getLocator() == null) ? "[n/a]" : String.format("[%d:%d, %d:%d] ",
+            errors.add(error.getSeverity().toString() + ": " +
+                    (error.getLocator() == null ? "" : String.format("[%d:%d, %d:%d] ",
                     error.getLocator().getStartLine(),
                     error.getLocator().getStartChar(),
                     error.getLocator().getEndLine(),
-                    error.getLocator().getEndChar())
-                    + error.getMessage());
+                    error.getLocator().getEndChar()))
+                    + error.getMessage().replace("\n", "").replace("\r", ""));
+        }
+        Collections.sort(errors);
+        return errors;
+    }
+
+    private static Map<CqlCompilerException.ErrorSeverity, List<CqlCompilerException>> categorizeCqlExceptions(List<CqlCompilerException> errors) {
+
+        List<CqlCompilerException> infosList = new ArrayList<>();
+        List<CqlCompilerException> warningsList = new ArrayList<>();
+        List<CqlCompilerException> errorList = new ArrayList<>();
+
+        for (CqlCompilerException exception : errors) {
+            if (exception.getSeverity().equals(CqlCompilerException.ErrorSeverity.Info)) {
+                infosList.add(exception);
+            } else if (exception.getSeverity().equals(CqlCompilerException.ErrorSeverity.Warning)) {
+                warningsList.add(exception);
+            } else if (exception.getSeverity().equals(CqlCompilerException.ErrorSeverity.Error)) {
+                errorList.add(exception);
+            }
         }
 
-        return errors;
+        Map<CqlCompilerException.ErrorSeverity, List<CqlCompilerException>> errorMap = new HashMap<>();
+
+        errorMap.put(CqlCompilerException.ErrorSeverity.Info, infosList);
+        errorMap.put(CqlCompilerException.ErrorSeverity.Warning, warningsList);
+        errorMap.put(CqlCompilerException.ErrorSeverity.Error, errorList);
+
+
+        return errorMap;
+    }
+
+    public static String buildCompleteStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors){
+        return buildCompleteStatusMessage(errors, resourceName, includeErrors, true);
+    }
+
+    public static String buildCompleteStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors, boolean withStatusIndicator){
+        //separate out exceptions by their severity to determine the messaging to the user:
+        Map<CqlCompilerException.ErrorSeverity, List<CqlCompilerException>> errorMap = CqlProcessor.categorizeCqlExceptions(errors);
+
+        List<CqlCompilerException> infosList = errorMap.getOrDefault(CqlCompilerException.ErrorSeverity.Info, new ArrayList<>());
+        List<CqlCompilerException> warningsList = errorMap.getOrDefault(CqlCompilerException.ErrorSeverity.Warning, new ArrayList<>());
+        List<CqlCompilerException> errorList = errorMap.getOrDefault(CqlCompilerException.ErrorSeverity.Error, new ArrayList<>());
+
+        List<String> fullSortedList = new ArrayList<>();
+        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(infosList));
+        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(warningsList));
+        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(errorList));
+        Collections.sort(fullSortedList);
+        String fullSortedListMsg = String.join("\n\t", fullSortedList);
+
+        String statusIndicator;
+        String statusIndicatorMinor = " processed successfully";
+
+        if (!errorList.isEmpty()) {
+            statusIndicator = "[FAIL] ";
+            statusIndicatorMinor = " failed";
+        } else if (!warningsList.isEmpty()) {
+            statusIndicator = "[WARN] ";
+        } else if (!infosList.isEmpty()) {
+            statusIndicator = "[INFO] ";
+        } else {
+            return "[SUCCESS] CQL Processing of " + resourceName + " completed successfully.";
+        }
+
+        String errorsStatus =  errorList.size() + " Error(s)" ;
+        String infoStatus =  infosList.size() + " Information Message(s)" ;
+        String warningStatus =  warningsList.size() + " Warning(s)" ;
+
+        return (withStatusIndicator ? statusIndicator : "") + resourceName + statusIndicatorMinor + " with " + errorsStatus + ", "
+                +  warningStatus + ", and " + infoStatus + (includeErrors ? ": \n\t" + fullSortedListMsg : "");
+    }
+
+    public static boolean hasSevereErrors(List<CqlCompilerException> errors) {
+        return errors.stream().anyMatch(error -> error.getSeverity() == CqlCompilerException.ErrorSeverity.Error);
     }
 }

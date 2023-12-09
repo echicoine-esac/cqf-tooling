@@ -19,12 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.Validate;
-import org.cqframework.cql.cql2elm.CqlTranslator;
-import org.cqframework.cql.cql2elm.CqlTranslatorOptions;
-import org.cqframework.cql.cql2elm.CqlTranslatorOptionsMapper;
-import org.cqframework.cql.cql2elm.DefaultLibrarySourceProvider;
-import org.cqframework.cql.cql2elm.LibraryManager;
-import org.cqframework.cql.cql2elm.ModelManager;
+import org.cqframework.cql.cql2elm.*;
 import org.cqframework.cql.cql2elm.quick.FhirLibrarySourceProvider;
 import org.hl7.elm.r1.IncludeDef;
 import org.hl7.elm.r1.ValueSetDef;
@@ -36,7 +31,7 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.instance.model.api.ICompositeType;
 import org.hl7.fhir.instance.model.api.IPrimitiveType;
 import org.hl7.fhir.r4.model.CanonicalType;
-import org.opencds.cqf.tooling.cql.exception.CQLTranslatorException;
+import org.opencds.cqf.tooling.cql.exception.CqlTranslatorException;
 import org.opencds.cqf.tooling.processor.ValueSetsProcessor;
 import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 import org.slf4j.Logger;
@@ -291,7 +286,7 @@ public class ResourceUtils {
       }
    }
 
-   public static Map<String, IBaseResource> getDepValueSetResources(String cqlContentPath, String igPath, FhirContext fhirContext, boolean includeDependencies, Boolean includeVersion) throws CQLTranslatorException {
+   public static Map<String, IBaseResource> getDepValueSetResources(String cqlContentPath, String igPath, FhirContext fhirContext, boolean includeDependencies, Boolean includeVersion) throws CqlTranslatorException {
       Map<String, IBaseResource> valueSetResources = new HashMap<>();
 
       List<String> valueSetDefIDs = getDepELMValueSetDefIDs(cqlContentPath);
@@ -321,12 +316,12 @@ public class ResourceUtils {
           missingValueSets.add(valueSetUrl + " MISSING");
         }
         logger.error(missingValueSets.toString());
-        throw new CQLTranslatorException(missingValueSets);
+        throw new CqlTranslatorException(missingValueSets, CqlCompilerException.ErrorSeverity.Warning);
       }
       return valueSetResources;
    }
 
-   public static List<String> getIncludedLibraryNames(String cqlContentPath, Boolean includeVersion) throws CQLTranslatorException{
+   public static List<String> getIncludedLibraryNames(String cqlContentPath, Boolean includeVersion) throws CqlTranslatorException {
       List<String> includedLibraryNames = new ArrayList<>();
       List<IncludeDef> includedDefs = getIncludedDefs(cqlContentPath);
       for (IncludeDef def : includedDefs) {
@@ -336,7 +331,7 @@ public class ResourceUtils {
       return includedLibraryNames;
    }
 
-   public static List<String> getDepELMValueSetDefIDs(String cqlContentPath) throws CQLTranslatorException {
+   public static List<String> getDepELMValueSetDefIDs(String cqlContentPath) throws CqlTranslatorException {
       List<String> includedValueSetDefIDs = new ArrayList<>();
       List<ValueSetDef> valueSetDefs = getValueSetDefs(cqlContentPath);
       for (ValueSetDef def : valueSetDefs) {
@@ -345,7 +340,7 @@ public class ResourceUtils {
       return includedValueSetDefIDs;
    }
 
-   public static List<IncludeDef> getIncludedDefs(String cqlContentPath) throws CQLTranslatorException{
+   public static List<IncludeDef> getIncludedDefs(String cqlContentPath) throws CqlTranslatorException {
       ArrayList<IncludeDef> includedDefs = new ArrayList<>();
       org.hl7.elm.r1.Library elm = getElmFromCql(cqlContentPath);
       if (elm.getIncludes() != null && !elm.getIncludes().getDef().isEmpty()) {
@@ -354,7 +349,7 @@ public class ResourceUtils {
       return includedDefs;
    }
 
-   public static List<ValueSetDef> getValueSetDefs(String cqlContentPath) throws CQLTranslatorException{
+   public static List<ValueSetDef> getValueSetDefs(String cqlContentPath) throws CqlTranslatorException {
       ArrayList<ValueSetDef> valueSetDefs = new ArrayList<>();
       org.hl7.elm.r1.Library elm;
       elm = getElmFromCql(cqlContentPath);
@@ -383,11 +378,11 @@ public class ResourceUtils {
       return options;
    }
 
-   public static CqlProcesses getCQLCqlTranslator(String cqlContentPath) throws CQLTranslatorException {
+   public static CqlProcesses getCQLCqlTranslator(String cqlContentPath) throws CqlTranslatorException {
       return  getCQLCqlTranslator(new File(cqlContentPath));
    }
 
-   public static CqlProcesses getCQLCqlTranslator(File file) throws CQLTranslatorException {
+   public static CqlProcesses getCQLCqlTranslator(File file) throws CqlTranslatorException {
       String cqlContentPath = file.getAbsolutePath();
       String folder = IOUtils.getParentDirectoryPath(cqlContentPath);
       CqlTranslatorOptions options = ResourceUtils.getTranslatorOptions(folder);
@@ -395,7 +390,7 @@ public class ResourceUtils {
       LibraryManager libraryManager = new LibraryManager(modelManager);
       libraryManager.getLibrarySourceLoader().registerProvider(new FhirLibrarySourceProvider());
       libraryManager.getLibrarySourceLoader().registerProvider(new DefaultLibrarySourceProvider(Paths.get(folder)));
-      return  new CqlProcesses(options, modelManager, libraryManager, IOUtils.translate(file, modelManager, libraryManager, options));
+      return  new CqlProcesses(options, modelManager, libraryManager, IOUtils.translate(file, libraryManager));
    }
 
    public static class CqlProcesses {
@@ -434,7 +429,7 @@ public class ResourceUtils {
    }
 
    private static Map<String, org.hl7.elm.r1.Library> cachedElm = new HashMap<>();
-   public static org.hl7.elm.r1.Library getElmFromCql(String cqlContentPath) throws CQLTranslatorException {
+   public static org.hl7.elm.r1.Library getElmFromCql(String cqlContentPath) throws CqlTranslatorException {
       org.hl7.elm.r1.Library elm = cachedElm.get(cqlContentPath);
       if (elm != null) {
          return elm;

@@ -9,14 +9,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.cqframework.cql.cql2elm.CqlTranslator;
-import org.cqframework.cql.cql2elm.CqlTranslatorOptions;
-import org.cqframework.cql.cql2elm.LibraryManager;
-import org.cqframework.cql.cql2elm.ModelManager;
+import org.cqframework.cql.cql2elm.*;
 import org.hl7.fhir.instance.model.api.IBaseBundle;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.utilities.Utilities;
-import org.opencds.cqf.tooling.cql.exception.CQLTranslatorException;
+import org.opencds.cqf.tooling.cql.exception.CqlTranslatorException;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
 import org.opencds.cqf.tooling.processor.CqlProcessor;
 import org.slf4j.Logger;
@@ -27,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -527,7 +523,7 @@ public class IOUtils {
         return result;
     }
 
-    public static List<String> getDependencyCqlPaths(String cqlContentPath, Boolean includeVersion) throws CQLTranslatorException{
+    public static List<String> getDependencyCqlPaths(String cqlContentPath, Boolean includeVersion) throws CqlTranslatorException {
         List<File> dependencyFiles = getDependencyCqlFiles(cqlContentPath, includeVersion);
         List<String> dependencyPaths = new ArrayList<>();
         for (File file : dependencyFiles) {
@@ -536,7 +532,7 @@ public class IOUtils {
         return dependencyPaths;
     }
 
-    public static List<File> getDependencyCqlFiles(String cqlContentPath, Boolean includeVersion) throws CQLTranslatorException{
+    public static List<File> getDependencyCqlFiles(String cqlContentPath, Boolean includeVersion) throws CqlTranslatorException {
         File cqlContent = new File(cqlContentPath);
         File cqlContentDir = cqlContent.getParentFile();
         if (!cqlContentDir.isDirectory()) {
@@ -572,12 +568,8 @@ public class IOUtils {
     }
 
     private static final Map<String, CqlTranslator> cachedTranslator = new LinkedHashMap<>();
-    public static CqlTranslator translate(String cqlContentPath, ModelManager modelManager, LibraryManager libraryManager, CqlTranslatorOptions options) throws CQLTranslatorException {
-         File cqlFile = new File(cqlContentPath);
-         return translate(cqlFile, modelManager, libraryManager, options);
-    }
 
-    public static CqlTranslator translate(File cqlFile, ModelManager modelManager, LibraryManager libraryManager, CqlTranslatorOptions options) throws CQLTranslatorException {
+    public static CqlTranslator translate(File cqlFile, LibraryManager libraryManager) throws CqlTranslatorException {
         String cqlContentPath = cqlFile.getAbsolutePath();
         CqlTranslator translator = cachedTranslator.get(cqlContentPath);
         if (translator != null) {
@@ -585,18 +577,19 @@ public class IOUtils {
         }
         try {
             if (!cqlFile.getName().endsWith(".cql")) {
-                throw new CQLTranslatorException("cqlContentPath must be a path to a .cql file");
+                throw new CqlTranslatorException("cqlContentPath must be a path to a .cql file");
             }
 
             translator = CqlTranslator.fromFile(cqlFile, libraryManager);
 
-            if (!translator.getErrors().isEmpty()) {
-                throw new CQLTranslatorException(CqlProcessor.listTranslatorErrors(new CopyOnWriteArrayList<>(translator.getErrors())));
+            if (CqlProcessor.hasSevereErrors(translator.getErrors())) {
+                throw new CqlTranslatorException(translator.getErrors());
             }
+
             cachedTranslator.put(cqlContentPath, translator);
             return translator;
         } catch (IOException e) {
-            throw new CQLTranslatorException(e);
+            throw new CqlTranslatorException(e);
         }
     }
 

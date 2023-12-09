@@ -123,7 +123,6 @@ public class HttpClientUtils {
             final int currentTaskIndex = tasks.size() + 1;
             PostComponent postPojo = new PostComponent(fhirServerUrl, resource, encoding, fhirContext, fileLocation);
             HttpPost post = configureHttpPost(fhirServerUrl, resource, encoding, fhirContext);
-
             Callable<Void> task = createPostCallable(post, postPojo, currentTaskIndex);
             tasks.put(resource.getIdElement().getIdPart(), task);
         } catch (Exception e) {
@@ -145,7 +144,16 @@ public class HttpClientUtils {
      * @return An HTTP POST request configured for the FHIR server and resource.
      */
     private static HttpPost configureHttpPost(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext) {
-        HttpPost post = new HttpPost(fhirServerUrl);
+
+        //Transaction bundles get posted to /fhir but other resources get posted to /fhir/resourceType ie fhir/Group
+        String fhirServer = fhirServerUrl;
+        if (!BundleUtils.resourceIsTransactionBundle(resource)) {
+            fhirServer = fhirServer +
+                    (fhirServerUrl.endsWith("/") ? resource.fhirType()
+                            : "/" + resource.fhirType());
+        }
+
+        HttpPost post = new HttpPost(fhirServer);
         post.addHeader("content-type", "application/" + encoding.toString());
 
         String resourceString = IOUtils.encodeResourceAsString(resource, encoding, fhirContext);

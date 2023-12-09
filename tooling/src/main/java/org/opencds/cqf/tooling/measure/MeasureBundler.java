@@ -43,7 +43,6 @@ public class MeasureBundler extends AbstractBundler {
                     String failMsg = "Bundle Measures failed to persist resource " + file.getAbsolutePath();
                     try {
                         //ensure the resource can be posted
-//                            if (BundleUtils.resourceIsTransactionBundle(resource)) {
                         try {
                             IBaseResource resource = IOUtils.readResource(file.getAbsolutePath(), fhirContext, true);
                             if (resource != null) {
@@ -53,7 +52,6 @@ public class MeasureBundler extends AbstractBundler {
                             System.out.println(failMsg);
                         }
 
-//                            }
                     } catch (Exception e) {
                         //resource is likely not IBaseResource
                         logger.error("persistTestFiles", e);

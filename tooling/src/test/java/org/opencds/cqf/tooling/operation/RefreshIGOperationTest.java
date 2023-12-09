@@ -99,7 +99,7 @@ public class RefreshIGOperationTest extends RefreshTest {
         //we can assert how many bundles were posted by keeping track via WireMockServer
         //first find an open port:
         int availablePort = findAvailablePort();
-        String fhirUri = "http://localhost:" + availablePort + "/fhir";
+        String fhirUri = "http://localhost:" + availablePort + "/fhir/";
         if (availablePort == -1){
             fhirUri = "";
             logger.info("No available ports to test post with. Removing mock fhir server from test.");
@@ -113,7 +113,7 @@ public class RefreshIGOperationTest extends RefreshTest {
             wireMockServer.start();
 
             WireMock.configureFor("localhost", availablePort);
-            wireMockServer.stubFor(WireMock.post(WireMock.urlEqualTo("/fhir"))
+            wireMockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/fhir/([a-zA-Z]*)"))
                     .willReturn(WireMock.aResponse()
                             .withStatus(200)
                             .withBody("Mock response")));

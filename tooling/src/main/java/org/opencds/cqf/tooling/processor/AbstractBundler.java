@@ -266,7 +266,7 @@ public abstract class AbstractBundler {
 
                     synchronized (this) {
                         double percentage = (double) processedResources.size() / totalResources * 100;
-                        System.out.println("Bundle " + getResourceProcessorType() + "s Progress: " + String.format("%.2f%%", percentage) + " PROCESSED: " + resourceEntry.getKey());
+                        System.out.println("[SUCCESS] " + getResourceProcessorType() + " " + resourceEntry.getKey() + " bundled. Progress: " + String.format("%.2f%%", percentage));
                     }
                     //task requires return statement
                     return null;

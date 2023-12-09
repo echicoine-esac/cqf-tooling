@@ -123,10 +123,10 @@ public class TestCaseProcessor {
 
                                     } catch (Exception e) {
                                         //clean reporting of errors with file name:
-                                        System.out.printf("Test Case refresh failed for %s: %s%n",
+                                        System.out.printf("[FAIL] Test Case refresh failed for %s %s%n",
                                                 testCasePath,
                                                 (includeErrors ?
-                                                        e.getMessage()
+                                                        ": " + e.getMessage()
                                                         : "")
                                         );
                                     } finally {
@@ -134,7 +134,7 @@ public class TestCaseProcessor {
                                     }
 
                                     //clean reporting of status with file name:
-                                    System.out.printf("Test Case refreshed: %s%n",
+                                    System.out.printf("[SUCCESS] Test Case refreshed: %s%n",
                                             testCasePath
                                     );
 
@@ -147,12 +147,23 @@ public class TestCaseProcessor {
                             // Need to output the Group if it exists
                             if (testGroup != null) {
                                 String groupFileName = "Group-" + measureName;
-                                IOUtils.writeResource(testGroup, testArtifactPath, encoding, fhirContext, true,
-                                        groupFileName);
-                                //clean reporting of status with file name:
-                                System.out.printf("Group file created: %s%n",
-                                        testArtifactPath + separator + groupFileName
-                                );
+                                try {
+                                    IOUtils.writeResource(testGroup, testArtifactPath, encoding, fhirContext, true,
+                                            groupFileName);
+                                    //clean reporting of status with file name:
+                                    System.out.printf("[SUCCESS] Group file created: %s%n",
+                                            testArtifactPath + separator + groupFileName
+                                    );
+                                }catch (Exception e){
+                                    //clean reporting of status with file name:
+                                    System.out.printf("[FAIL] Group file creation failed for %s %s%n",
+                                            testArtifactPath + separator + groupFileName,
+                                            (includeErrors ?
+                                                    ": " + e.getMessage()
+                                                    : "")
+                                    );
+                                }
+
                             }
                         }
                         //task requires return statement

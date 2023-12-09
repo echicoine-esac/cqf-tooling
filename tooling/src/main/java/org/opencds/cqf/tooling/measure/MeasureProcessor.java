@@ -124,7 +124,9 @@ public class MeasureProcessor extends BaseProcessor {
         if (!errors.isEmpty()) {
             StringBuilder errorMessage = new StringBuilder();
             for (CqlCompilerException e : errors) {
-                errorMessage.append("\n\t").append(e.getMessage());
+                //ensure no blank lines:
+                String error = e.getMessage().replace("\n", "").replace("\r", "");
+                errorMessage.append("\n\t").append(error);
                 if (e.getSeverity() == CqlCompilerException.ErrorSeverity.Error) {
                     hasErrors = true;
                 }

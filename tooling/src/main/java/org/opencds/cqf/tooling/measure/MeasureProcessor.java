@@ -114,7 +114,7 @@ public class MeasureProcessor extends BaseProcessor {
         List<CqlCompilerException> errors = new CopyOnWriteArrayList<>();
         CompiledLibrary CompiledLibrary = libraryManager.resolveLibrary(primaryLibraryIdentifier, errors);
 
-        System.out.println(CqlProcessor.buildCompleteStatusMessage(errors, measure.getName(), includeErrors));
+        System.out.println(CqlProcessor.buildStatusMessage(errors, measure.getName(), includeErrors));
 
         boolean hasSevereErrors = CqlProcessor.hasSevereErrors(errors);
 

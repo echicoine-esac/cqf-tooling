@@ -418,7 +418,7 @@ public class CqlProcessor {
                 // Extract dataRequirement data
                 result.dataRequirements.addAll(requirementsLibrary.getDataRequirement());
 
-                System.out.println(CqlProcessor.buildCompleteStatusMessage(translator.getErrors(), file.getName(), includeErrors));
+                System.out.println(CqlProcessor.buildStatusMessage(translator.getErrors(), file.getName(), includeErrors));
             } catch (Exception ex) {
                 logger.logMessage(String.format("CQL Translation succeeded for file: '%s', but ELM generation failed with the following error: %s", file.getAbsolutePath(), ex.getMessage()));
             }
@@ -427,7 +427,7 @@ public class CqlProcessor {
             result.getErrors().add(new ValidationMessage(ValidationMessage.Source.Publisher, IssueType.EXCEPTION, file.getName(),
                     String.format("CQL Processing failed with (%d) errors.", e.getErrors().size()), IssueSeverity.ERROR));
 
-            System.out.println(CqlProcessor.buildCompleteStatusMessage(e.getErrors(), file.getName(), includeErrors));
+            System.out.println(CqlProcessor.buildStatusMessage(e.getErrors(), file.getName(), includeErrors));
         }
 
     }
@@ -527,11 +527,11 @@ public class CqlProcessor {
         return errorMap;
     }
 
-    public static String buildCompleteStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors){
-        return buildCompleteStatusMessage(errors, resourceName, includeErrors, true);
+    public static String buildStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors){
+        return buildStatusMessage(errors, resourceName, includeErrors, true, "\n\t");
     }
 
-    public static String buildCompleteStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors, boolean withStatusIndicator){
+    public static String buildStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors, boolean withStatusIndicator, String delimiter){
         //separate out exceptions by their severity to determine the messaging to the user:
         Map<CqlCompilerException.ErrorSeverity, List<CqlCompilerException>> errorMap = CqlProcessor.categorizeCqlExceptions(errors);
 
@@ -544,10 +544,10 @@ public class CqlProcessor {
         fullSortedList.addAll(CqlProcessor.listTranslatorErrors(warningsList));
         fullSortedList.addAll(CqlProcessor.listTranslatorErrors(errorList));
         Collections.sort(fullSortedList);
-        String fullSortedListMsg = String.join("\n\t", fullSortedList);
+        String fullSortedListMsg = String.join(delimiter, fullSortedList);
 
         String statusIndicator;
-        String statusIndicatorMinor = " processed successfully";
+        String statusIndicatorMinor = " completed successfully";
 
         if (!errorList.isEmpty()) {
             statusIndicator = "[FAIL] ";
@@ -557,15 +557,15 @@ public class CqlProcessor {
         } else if (!infosList.isEmpty()) {
             statusIndicator = "[INFO] ";
         } else {
-            return "[SUCCESS] CQL Processing of " + resourceName + " completed successfully.";
+            return "[SUCCESS] CQL Processing of " + resourceName + statusIndicatorMinor;
         }
 
         String errorsStatus =  errorList.size() + " Error(s)" ;
         String infoStatus =  infosList.size() + " Information Message(s)" ;
         String warningStatus =  warningsList.size() + " Warning(s)" ;
 
-        return (withStatusIndicator ? statusIndicator : "") + resourceName + statusIndicatorMinor + " with " + errorsStatus + ", "
-                +  warningStatus + ", and " + infoStatus + (includeErrors ? ": \n\t" + fullSortedListMsg : "");
+        return (withStatusIndicator ? statusIndicator : "") + "CQL Processing of " + resourceName + statusIndicatorMinor + " with " + errorsStatus + ", "
+                +  warningStatus + ", and " + infoStatus + (includeErrors ? ": " + delimiter + fullSortedListMsg : "");
     }
 
     public static boolean hasSevereErrors(List<CqlCompilerException> errors) {

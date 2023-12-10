@@ -254,11 +254,8 @@ public abstract class AbstractBundler {
                     }
 
                     processedResources.add(resourceSourcePath);
+                    reportProgress(processedResources.size(), tasks.size());
 
-                    synchronized (this) {
-                        double percentage = (double) processedResources.size() / totalResources * 100;
-                        System.out.println("[SUCCESS] " + getResourceProcessorType() + " Bundled: " + resourceEntry.getKey() + ". Overall Progress: " + String.format("%.2f%%", percentage));
-                    }
                     //task requires return statement
                     return null;
                 });
@@ -310,11 +307,11 @@ public abstract class AbstractBundler {
 
         //Exceptions stemming from IOUtils.translate that did not prevent process from completing for file:
         if (!cqlTranslatorErrorMessages.isEmpty()) {
-            message.append(NEWLINE).append(cqlTranslatorErrorMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered CQL translator errors:");
+            message.append(NEWLINE).append(cqlTranslatorErrorMessages.size()).append(" ").append(getResourceProcessorType()).append("(s) encountered CQL translator errors:" + NEWLINE_INDENT);
 
             for (String library : cqlTranslatorErrorMessages.keySet()) {
-                message.append(NEWLINE_INDENT).append(
-                        CqlProcessor.buildCompleteStatusMessage(cqlTranslatorErrorMessages.get(library), library, includeErrors, false)
+                message.append(
+                        CqlProcessor.buildStatusMessage(cqlTranslatorErrorMessages.get(library), library, includeErrors, false, NEWLINE_INDENT2)
                 ).append(NEWLINE);
             }
         }
@@ -322,9 +319,10 @@ public abstract class AbstractBundler {
         System.out.println(message.toString());
     }
 
-//    private static String getJoinedErrorList(Set<String> translatorWarningMessages) {
-//        return ": " + String.join(NEWLINE_INDENT2, new ArrayList<>(translatorWarningMessages));
-//    }
+    private void reportProgress(int count, int total) {
+        double percentage = (double) count / total * 100;
+        System.out.print("\rBundle " + getResourceProcessorType() + "s: " + String.format("%.2f%%", percentage) + " processed.");
+    }
 
     private String getResourcePrefix() {
         return getResourceProcessorType().toLowerCase() + "-";

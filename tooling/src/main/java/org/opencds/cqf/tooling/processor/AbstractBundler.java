@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * An abstract base class for processors that handle the bundling of various types of resources within an ig.
+ * An abstract base class for bundlers that handle the bundling of various types of resources within an ig.
  * This class provides methods for bundling resources, including dependencies and test cases, and handles the execution of associated tasks.
  * Subclasses must implement specific methods for gathering, processing, and persisting resources.
  */

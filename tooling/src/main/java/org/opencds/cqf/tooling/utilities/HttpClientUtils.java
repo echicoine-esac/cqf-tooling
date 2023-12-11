@@ -1,9 +1,6 @@
 package org.opencds.cqf.tooling.utilities;
 
 import ca.uhn.fhir.context.FhirContext;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpEntity;
@@ -40,15 +37,21 @@ public class HttpClientUtils {
     private static final String BUNDLE_RESOURCE = "Bundle Resource";
     private static final String ENCODING_TYPE = "Encoding Type";
     private static final String FHIR_CONTEXT = "FHIR Context";
+
+    //This is not to maintain a thread count, but rather to maintain the maximum number of POST calls that can simultaneously be waiting for a response from the server.
+    //TODO:Allow users to specify this value on their own with an argument passed into operation so that more robust servers can process post list faster
     private static final int MAX_SIMULTANEOUS_POST_COUNT = 10;
 
     //failedPostCalls needs to maintain the details built in the FAILED message, as well as a copy of the inputs for a retry by the user on failed posts.
     private static Queue<Pair<String, PostComponent>> failedPostCalls = new ConcurrentLinkedQueue<>();
     private static List<String> successfulPostCalls = new CopyOnWriteArrayList<>();
     private static Map<String, Callable<Void>> tasks = new ConcurrentHashMap<>();
+    private static Map<String, Callable<Void>> initialTasks = new ConcurrentHashMap<>();
     private static List<String> runningPostTaskList = new CopyOnWriteArrayList<>();
     private static int processedPostCounter = 0;
-    private HttpClientUtils() {}
+
+    private HttpClientUtils() {
+    }
 
     public static boolean hasPostTasksInQueue() {
         return !tasks.isEmpty();
@@ -63,9 +66,8 @@ public class HttpClientUtils {
      * @param fhirContext   The FHIR context for the resource.
      * @param fileLocation  Optional fileLocation indicator for identifying resources by raw filename
      * @throws IOException If an I/O error occurs during the request.
-     *
      */
-    public static void post(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation) throws IOException {
+    public static void post(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation, boolean withPriority) throws IOException {
         List<String> missingValues = new ArrayList<>();
         List<String> values = new ArrayList<>();
         validateAndAddValue(fhirServerUrl, FHIR_SERVER_URL, missingValues, values);
@@ -80,9 +82,12 @@ public class HttpClientUtils {
             return;
         }
 
-        createPostTask(fhirServerUrl, resource, encoding, fhirContext, fileLocation);
+        createPostTask(fhirServerUrl, resource, encoding, fhirContext, fileLocation, withPriority);
     }
 
+    public static void post(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation) throws IOException {
+        post(fhirServerUrl, resource, encoding, fhirContext, fileLocation, false);
+    }
 
     /**
      * Validates a value and adds its representation to the provided lists using a custom value-to-string function.
@@ -105,6 +110,7 @@ public class HttpClientUtils {
             values.add(label + ": " + valueToString.apply(value));
         }
     }
+
     private static <T> void validateAndAddValue(T value, String label, List<String> missingValues, List<String> values) {
         validateAndAddValue(value, label, missingValues, values, Object::toString);
     }
@@ -121,11 +127,15 @@ public class HttpClientUtils {
      * @param encoding      The encoding type of the resource.
      * @param fhirContext   The FHIR context for the resource.
      */
-    private static void createPostTask(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation) {
+    private static void createPostTask(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation, boolean withPriority) {
         try {
-            PostComponent postPojo = new PostComponent(fhirServerUrl, resource, encoding, fhirContext, fileLocation);
+            PostComponent postPojo = new PostComponent(fhirServerUrl, resource, encoding, fhirContext, fileLocation, withPriority);
             HttpPost post = configureHttpPost(fhirServerUrl, resource, encoding, fhirContext);
-            tasks.put(resource.getIdElement().getIdPart(), createPostCallable(post, postPojo));
+            if (withPriority) {
+                initialTasks.put(resource.getIdElement().getIdPart(), createPostCallable(post, postPojo));
+            } else {
+                tasks.put(resource.getIdElement().getIdPart(), createPostCallable(post, postPojo));
+            }
         } catch (Exception e) {
             logger.error("Error while submitting the POST request: " + e.getMessage(), e);
         }
@@ -188,11 +198,18 @@ public class HttpClientUtils {
      * 5. Updates the progress and status of the post task.
      *
      * @param post          The HTTP POST request to be executed.
-     * @param postComponent      A data object containing additional information about the POST request.
+     * @param postComponent A data object containing additional information about the POST request.
      * @return A callable task for executing the HTTP POST request.
      */
     private static Callable<Void> createPostCallable(HttpPost post, PostComponent postComponent) {
         return () -> {
+            boolean posted = false;
+            String resourceIdentifier = (postComponent.fileLocation != null ?
+                    Paths.get(postComponent.fileLocation).getFileName().toString()
+                    :
+                    postComponent.resource.getIdElement().getIdPart());
+            String reportMessage = "[SUCCESS] Resource successfully posted to " + postComponent.fhirServerUrl + ": " + resourceIdentifier;
+
             try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
 
                 HttpResponse response = httpClient.execute(post);
@@ -201,26 +218,26 @@ public class HttpClientUtils {
                 String diagnosticString = getDiagnosticString(EntityUtils.toString(response.getEntity()));
 
 
-                String resourceIdentifier = (postComponent.fileLocation != null ?
-                        Paths.get(postComponent.fileLocation).getFileName().toString()
-                        :
-                        postComponent.resource.getIdElement().getIdPart());
+
 
                 if (statusCode >= 200 && statusCode < 300) {
-                    successfulPostCalls.add("[SUCCESS] Resource successfully posted to " + postComponent.fhirServerUrl + ": " + resourceIdentifier);
+                    posted = true;
+                    successfulPostCalls.add(reportMessage);
                 } else {
-                    String detailedMessage = "[FAIL] Error " + statusCode + " from " + postComponent.fhirServerUrl + ": " + resourceIdentifier  + ": " + diagnosticString;
-                    failedPostCalls.add(Pair.of(detailedMessage, postComponent));
+                    reportMessage = "[FAIL] Error " + statusCode + " from " + postComponent.fhirServerUrl + ": " + resourceIdentifier + ": " + diagnosticString;
+                    failedPostCalls.add(Pair.of(reportMessage, postComponent));
                 }
 
             } catch (IOException e) {
-                failedPostCalls.add(Pair.of("[FAIL] Error while making the POST request: " + e.getMessage(), postComponent));
+                reportMessage = "[FAIL] Error while making the POST request: " + e.getMessage();
+                failedPostCalls.add(Pair.of(reportMessage, postComponent));
             } catch (Exception e) {
-                failedPostCalls.add(Pair.of("[FAIL] Error during POST request execution: " + e.getMessage(), postComponent));
+                reportMessage = "[FAIL] Error during POST request execution: " + e.getMessage();
+                failedPostCalls.add(Pair.of(reportMessage, postComponent));
             }
 
             runningPostTaskList.remove(postComponent.resource.getIdElement().getIdPart());
-            reportProgress();
+            reportProgress(reportMessage);
             return null;
         };
     }
@@ -228,14 +245,15 @@ public class HttpClientUtils {
     /**
      * This method takes in a json string from the endpoint that might look like this:
      * {
-     *   "resourceType": "OperationOutcome",
-     *   "issue": [ {
-     *     "severity": "error",
-     *     "code": "processing",
-     *     "diagnostics": "HAPI-1094: Resource Condition/delivery-of-singleton-f83c not found, specified in path: Encounter.diagnosis.condition"
-     *   } ]
+     * "resourceType": "OperationOutcome",
+     * "issue": [ {
+     * "severity": "error",
+     * "code": "processing",
+     * "diagnostics": "HAPI-1094: Resource Condition/delivery-of-singleton-f83c not found, specified in path: Encounter.diagnosis.condition"
+     * } ]
      * }
      * It extracts the diagnostics and returns a string appendable to the response
+     *
      * @param jsonString
      * @return
      */
@@ -261,10 +279,22 @@ public class HttpClientUtils {
      * relative to the total number of tasks. It also displays the current size of the running thread pool. The progress
      * and pool size information is printed to the standard output.
      */
-    private static void reportProgress() {
+    private static void reportProgress(String reportedMessage) {
         int currentCounter = processedPostCounter++;
-        double percentage = (double) currentCounter / tasks.size() * 100;
-        System.out.print("\rPOST calls: " + String.format("%.2f%%", percentage) + " processed. Thread pool size: " + runningPostTaskList.size() + " ");
+        double percentage = (double) currentCounter / getTotalTaskCount() * 100;
+        String output = "\rPOST calls: " + String.format("%.2f%%", percentage) + " processed. POST response pool size: " + runningPostTaskList.size() + " " + reportedMessage;
+        if (output.length() > maxReportProcessMessageLength){
+            maxReportProcessMessageLength = output.length();
+        }
+        System.out.printf("%-" + maxReportProcessMessageLength + "s", output);
+    }
+    /*
+    used to maintain a clean output on a single line
+     */
+    private static int maxReportProcessMessageLength = 0;
+
+    private static int getTotalTaskCount() {
+        return tasks.size() + initialTasks.size();
     }
 
     /**
@@ -285,30 +315,16 @@ public class HttpClientUtils {
         ExecutorService executorService = Executors.newFixedThreadPool(1);
 
         try {
-            System.out.println(tasks.size() + " POST calls to be made. Starting now. Please wait...");
+            System.out.println(getTotalTaskCount() + " POST calls to be made. Starting now. Please wait...");
             double percentage = 0;
             System.out.print("\rPOST: " + String.format("%.2f%%", percentage) + " done. ");
 
-            List<Future<Void>> futures = new ArrayList<>();
-            List<String> resources = new ArrayList<>(tasks.keySet());
-            for (int i = 0; i < resources.size(); i++) {
-                String thisResourceId = resources.get(i);
-                if (runningPostTaskList.size() < MAX_SIMULTANEOUS_POST_COUNT) {
-                    runningPostTaskList.add(thisResourceId);
-                    futures.add(executorService.submit(tasks.get(thisResourceId)));
-                } else {
-                    threadSleep(10);
-                    i--;
-                }
-            }
 
-            for (Future<Void> future : futures) {
-                try {
-                    future.get();
-                } catch (Exception e) {
-                    logger.error("HTTPClientUtils future.get()", e);
-                }
-            }
+            //execute any tasks marked as having priority:
+            executeTasks(executorService, initialTasks);
+
+            //execute the remaining tasks:
+            executeTasks(executorService, tasks);
 
             System.out.println("Processing results...");
             Collections.sort(successfulPostCalls);
@@ -331,22 +347,34 @@ public class HttpClientUtils {
                     cleanUp(); //clear the queue, reset the counter, start fresh
 
                     for (Pair<String, PostComponent> pair : failedPostCallList) {
-                        PostComponent postPojo = pair.getRight();
+                        PostComponent postComponent = pair.getRight();
                         try {
-                            post(postPojo.fhirServerUrl, postPojo.resource, postPojo.encoding, postPojo.fhirContext, postPojo.fileLocation);
+                            post(postComponent.fhirServerUrl,
+                                    postComponent.resource,
+                                    postComponent.encoding,
+                                    postComponent.fhirContext,
+                                    postComponent.fileLocation,
+                                    postComponent.hasPriority);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
                     }
 
-                    for (Callable<Void> task : tasks.values()) {
-                        try {
-                            task.call();
-                        } catch (Exception e) {
-                            throw new RuntimeException(e);
-                        }
-                        threadSleep(50);
-                    }
+
+                    //execute any tasks marked as having priority:
+                    executeTasks(executorService, initialTasks);
+
+                    //execute the remaining tasks:
+                    executeTasks(executorService, tasks);
+
+//                    for (Callable<Void> task : tasks.values()) {
+//                        try {
+//                            task.call();
+//                        } catch (Exception e) {
+//                            throw new RuntimeException(e);
+//                        }
+//                        threadSleep(50);
+//                    }
 
                     if (failedPostCalls.isEmpty()) {
                         System.out.println("Retry successful, all tasks successfully posted");
@@ -385,6 +413,29 @@ public class HttpClientUtils {
         }
     }
 
+    private static void executeTasks(ExecutorService executorService, Map<String, Callable<Void>> executableTasksMap) {
+        List<Future<Void>> futures = new ArrayList<>();
+        List<String> resources = new ArrayList<>(executableTasksMap.keySet());
+        for (int i = 0; i < resources.size(); i++) {
+            String thisResourceId = resources.get(i);
+            if (runningPostTaskList.size() < MAX_SIMULTANEOUS_POST_COUNT) {
+                runningPostTaskList.add(thisResourceId);
+                futures.add(executorService.submit(executableTasksMap.get(thisResourceId)));
+            } else {
+                threadSleep(10);
+                i--;
+            }
+        }
+
+        for (Future<Void> future : futures) {
+            try {
+                future.get();
+            } catch (Exception e) {
+                logger.error("HTTPClientUtils future.get()", e);
+            }
+        }
+    }
+
     /**
      * Pauses the current thread's execution for a specified duration.
      * This method causes the current thread to sleep for the given duration, allowing a pause in execution. If an
@@ -392,13 +443,14 @@ public class HttpClientUtils {
      *
      * @param i The duration, in milliseconds, for which the thread should sleep.
      */
-    private static void threadSleep(int i){
+    private static void threadSleep(int i) {
         try {
             Thread.sleep(i);
         } catch (InterruptedException e) {
             logger.error("postTaskCollection", new RuntimeException(e));
         }
     }
+
     /**
      * Cleans up and resets internal data structures after processing HTTP POST tasks.
      * <p>
@@ -415,8 +467,10 @@ public class HttpClientUtils {
         failedPostCalls = new ConcurrentLinkedQueue<>();
         successfulPostCalls = new CopyOnWriteArrayList<>();
         tasks = new ConcurrentHashMap<>();
+        initialTasks = new ConcurrentHashMap<>();
         processedPostCounter = 0;
         runningPostTaskList = new CopyOnWriteArrayList<>();
+        maxReportProcessMessageLength = 0;
     }
 
     public static String get(String path) throws IOException {
@@ -448,15 +502,16 @@ public class HttpClientUtils {
         IBaseResource resource;
         IOUtils.Encoding encoding;
         FhirContext fhirContext;
-
         String fileLocation;
+        boolean hasPriority;
 
-        public PostComponent(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation) {
+        public PostComponent(String fhirServerUrl, IBaseResource resource, IOUtils.Encoding encoding, FhirContext fhirContext, String fileLocation, boolean hasPriority) {
             this.fhirServerUrl = fhirServerUrl;
             this.resource = resource;
             this.encoding = encoding;
             this.fhirContext = fhirContext;
             this.fileLocation = fileLocation;
+            this.hasPriority = hasPriority;
         }
     }
 

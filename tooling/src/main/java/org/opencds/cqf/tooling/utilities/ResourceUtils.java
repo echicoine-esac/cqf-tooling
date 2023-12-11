@@ -315,7 +315,6 @@ public class ResourceUtils {
         for (String valueSetUrl : dependencies) {
           missingValueSets.add(valueSetUrl + " MISSING");
         }
-        logger.error(missingValueSets.toString());
         throw new CqlTranslatorException(missingValueSets, CqlCompilerException.ErrorSeverity.Warning);
       }
       return valueSetResources;

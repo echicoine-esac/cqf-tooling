@@ -100,7 +100,6 @@ public class MeasureProcessor extends BaseProcessor {
             } else {
                 resources.add(measure);
             }
-
         }
 
         return resources;

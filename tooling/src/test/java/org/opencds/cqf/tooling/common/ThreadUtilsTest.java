@@ -7,10 +7,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.testng.Assert.assertEquals;
@@ -24,7 +21,7 @@ public class ThreadUtilsTest {
         x = 0;
     }
     @Test
-    public void testExecute() {
+    public void testExecute() throws InterruptedException {
         ExecutorService executorService = Executors.newCachedThreadPool();
         List<Callable<Void>> tasks = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
@@ -34,15 +31,21 @@ public class ThreadUtilsTest {
             });
         }
         ThreadUtils.executeTasks(tasks, executorService);
+
+        // Shut down the executor and wait for all tasks to complete
+        executorService.shutdown();
+        executorService.awaitTermination(5, TimeUnit.SECONDS);
+
         assertTrue(executorService.isShutdown());
+
         assertEquals(x, 5);
     }
 
     @Test
-    public void testShutdown() {
+    public void testShutdown() throws InterruptedException {
         ExecutorService executorService = Executors.newCachedThreadPool();
         List<Callable<Void>> tasks = new ArrayList<>();
-        int max = 100000;
+        int max = 1000000;
         for (int i = 1; i <= max; i++) {
             tasks.add(() -> {
                 x++;
@@ -52,6 +55,10 @@ public class ThreadUtilsTest {
         }
         ThreadUtils.executeTasks(tasks, executorService);
 
+        // Shut down the executor and wait for all tasks to complete
+        executorService.shutdown();
+        executorService.awaitTermination(5, TimeUnit.SECONDS);
+
         assertTrue(x < max);
 
         assertTrue(executorService.isShutdown());
@@ -60,7 +67,7 @@ public class ThreadUtilsTest {
     @Test
     public void testExecuteWithQueueList() {
         Queue<Callable<Void>> returnTasks = new ConcurrentLinkedQueue<>(testWithX());
-        ThreadUtils.executeTasks(returnTasks );
+        ThreadUtils.executeTasks(returnTasks);
         assertEquals(x, 100);
     }
 

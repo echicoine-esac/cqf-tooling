@@ -38,8 +38,4 @@ public class PlanDefinitionBundler extends AbstractBundler {
         return IOUtils.getPlanDefinitionPaths(fhirContext);
     }
 
-    @Override
-    protected void persistOtherFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, String builtBundleDestPath) {
-        //not needed yet
-    }
 }

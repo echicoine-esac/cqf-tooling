@@ -18,12 +18,16 @@ import org.slf4j.LoggerFactory;
 import jakarta.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import ca.uhn.fhir.context.FhirVersionEnum;
 import ca.uhn.fhir.model.api.IFhirVersion;
 
 public class TestCaseProcessor {
+
+    private static Map<String, String> testCaseConversionTracker = new ConcurrentHashMap<>();
+
     public static final String separator = System.getProperty("file.separator");
     private static final Logger logger = LoggerFactory.getLogger(TestCaseProcessor.class);
 
@@ -120,6 +124,8 @@ public class TestCaseProcessor {
                                             bundle = BundleUtils.bundleArtifacts(fileId, resources, fhirContext, false);
                                         }
                                         IOUtils.writeBundle(bundle, testArtifactPath, encoding, fhirContext);
+
+                                        testCaseConversionTracker.put(testCasePath, fileId);
 
                                     } catch (Exception e) {
                                         //clean reporting of errors with file name:
@@ -279,7 +285,6 @@ public class TestCaseProcessor {
     }
 
 
-    static Set<String> copiedFilePaths = new HashSet<>();
 
     //TODO: the bundle needs to have -expectedresults added too
 
@@ -298,9 +303,6 @@ public class TestCaseProcessor {
     public static String bundleTestCaseFiles(String igPath, String contextResourceType, String libraryName, String destPath, FhirContext fhirContext) {
         String igTestCasePath = FilenameUtils.concat(FilenameUtils.concat(FilenameUtils.concat(igPath, IGProcessor.TEST_CASE_PATH_ELEMENT), contextResourceType), libraryName);
         List<String> testCasePaths = IOUtils.getFilePaths(igTestCasePath, false);
-        Set<String> measureReportPaths = IOUtils.getMeasureReportPaths(fhirContext);
-        List<String> testCaseDirectories = IOUtils.getDirectoryPaths(igTestCasePath, false);
-
         int tracker = 0;
         for (String testPath : testCasePaths) {
             String bundleTestDestPath = FilenameUtils.concat(destPath, FilenameUtils.getName(testPath));
@@ -308,40 +310,11 @@ public class TestCaseProcessor {
                 tracker++;
             }
 
-            for (String testCaseDirectory : testCaseDirectories) {
-                List<String> testContentPaths = IOUtils.getFilePaths(testCaseDirectory, false);
-                for (String testContentPath : testContentPaths) {
-                    // Copy the file if it hasn't been copied before (Set.add returns false if the Set already contains this entry)
-                    if (copiedFilePaths.add(testContentPath)) {
-
-                        Optional<String> matchingMeasureReportPath = measureReportPaths.stream()
-                                .filter(path -> path.equals(testContentPath))
-                                .findFirst();
-                        if (matchingMeasureReportPath.isPresent()) {
-                            IBaseResource measureReport = IOUtils.readResource(testContentPath, fhirContext);
-                            if (!measureReport.getIdElement().getIdPart().startsWith("measurereport") || !measureReport.getIdElement().getIdPart().endsWith("-expectedresults")) {
-                                Object measureReportStatus = ResourceUtils.resolveProperty(measureReport, "status", fhirContext);
-                                String measureReportStatusValue = ResourceUtils.resolveProperty(measureReportStatus, "value", fhirContext).toString();
-                                if (measureReportStatusValue.equals("COMPLETE")) {
-                                    String expectedResultsId = FilenameUtils.getBaseName(testContentPath) + (FilenameUtils.getBaseName(testContentPath).endsWith("-expectedresults") ? "" : "-expectedresults");
-                                    measureReport.setId(expectedResultsId);
-                                }
-                            }
-                            IOUtils.writeResource(measureReport, destPath, IOUtils.Encoding.JSON, fhirContext);
-                        } else {
-                            String bundleTestContentDestPath = FilenameUtils.concat(destPath, FilenameUtils.getName(testContentPath));
-                            if (IOUtils.copyFile(testContentPath, bundleTestContentDestPath)) {
-                                tracker++;
-                            }
-                        }
-                    }
-                }
-            }
         }
         return "\nBundle Test Case Files: " + tracker + " files copied for " + igTestCasePath;
     }
 
     public static void cleanUp() {
-        copiedFilePaths = new HashSet<>();
+        testCaseConversionTracker = new ConcurrentHashMap<>();
     }
 }

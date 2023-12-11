@@ -8,13 +8,12 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.cql.exception.CqlTranslatorException;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
-import org.opencds.cqf.tooling.utilities.BundleUtils;
-import org.opencds.cqf.tooling.utilities.IOUtils;
-import org.opencds.cqf.tooling.utilities.LogUtils;
-import org.opencds.cqf.tooling.utilities.ResourceUtils;
+import org.opencds.cqf.tooling.utilities.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Subclasses must implement specific methods for gathering, processing, and persisting resources.
  */
 public abstract class AbstractBundler {
+    public static final String separator = System.getProperty("file.separator");
     public static final String NEWLINE_INDENT2 = "\n\t\t";
     public static final String NEWLINE_INDENT = "\r\n\t";
     public static final String NEWLINE = "\r\n";
@@ -77,6 +77,21 @@ public abstract class AbstractBundler {
         return identifiers;
     }
 
+    private String getResourcePrefix() {
+        return getResourceProcessorType().toLowerCase() + "-";
+    }
+
+    protected abstract Set<String> getPaths(FhirContext fhirContext);
+
+    protected abstract String getSourcePath(FhirContext fhirContext, Map.Entry<String, IBaseResource> resourceEntry);
+
+    /**
+     * Handled by the child class in gathering specific IBaseResources
+     */
+    protected abstract Map<String, IBaseResource> getResources(FhirContext fhirContext);
+
+    protected abstract String getResourceProcessorType();
+
 
     /**
      * Bundles resources within an Implementation Guide based on specified options.
@@ -107,8 +122,6 @@ public abstract class AbstractBundler {
         final Map<String, String> failedExceptionMessages = new ConcurrentHashMap<>();
 
         final Map<String, List<CqlCompilerException>> cqlTranslatorErrorMessages = new ConcurrentHashMap<>();
-
-        int totalResources = resourcesMap.size();
 
         //build list of tasks via for loop:
         List<Callable<Void>> tasks = new ArrayList<>();
@@ -222,23 +235,41 @@ public abstract class AbstractBundler {
 
                             String bundleDestPath = FilenameUtils.concat(FilenameUtils.concat(IGProcessor.getBundlesPath(igPath), getResourceTestGroupName()), resourceName);
 
-                            String builtBundleDestPath = persistBundle(igPath, bundleDestPath, resourceName, encoding, fhirContext, new ArrayList<IBaseResource>(resources.values()), fhirUri, addBundleTimestamp);
+                            //create bundle, post bundle to fhir server:
+                            String builtBundleDestPath = persistBundle(bundleDestPath, resourceName, encoding, fhirContext, new ArrayList<>(resources.values()), fhirUri, addBundleTimestamp);
 
                             String possibleBundleTestMessage = bundleFiles(igPath, bundleDestPath, resourceName, binaryPaths, resourceSourcePath,
                                     primaryLibrarySourcePath, fhirContext, encoding, includeTerminology, includeDependencies, includePatientScenarios,
                                     includeVersion, addBundleTimestamp, cqlTranslatorErrorMessages);
 
-                            //Check for test files in bundleDestPath + "-files", loop through if exists,
-                            // find all files that start with "tests-", post to fhir server following same folder structure:
-                            persistOtherFiles(bundleDestPath, resourceName, encoding, fhirContext, fhirUri, builtBundleDestPath);
+                            //Keep track of which files have been persisted
+                            List<String> persistedFiles = new ArrayList<>();
+                            persistedFiles.add(builtBundleDestPath);
+
+                            //All tests-* files must be prior to remaining files.
+                            persistedFiles.addAll(persistTestFiles(bundleDestPath, resourceName, encoding, fhirContext, fhirUri));
+
+                            //find all files that end with .cql, .xml, or .json, and haven't already been posted and recorded to persistedFiles list:
+                            persistedFiles.addAll(persistRemainingFiles(bundleDestPath, resourceName, encoding, fhirContext, fhirUri, persistedFiles));
 
                             if (cdsHooksProcessor != null) {
                                 List<String> activityDefinitionPaths = CDSHooksProcessor.bundleActivityDefinitions(resourceSourcePath, fhirContext, resources, encoding, includeVersion, shouldPersist);
                                 cdsHooksProcessor.addActivityDefinitionFilesToBundle(igPath, bundleDestPath, activityDefinitionPaths, fhirContext, encoding);
                             }
 
+                            //Inform user of total # of files copied during  Bundle Test Case Files process:
                             if (!possibleBundleTestMessage.isEmpty()) {
                                 bundleTestFileStringBuilder.append(possibleBundleTestMessage);
+                            }
+
+                            //If user supplied a fhir server url, inform them of total # of files to be persisted to the server:
+                            if (fhirUri != null && !fhirUri.isEmpty()) {
+                                bundleTestFileStringBuilder.append("\r\n")
+                                        .append(persistedFiles.size())
+                                        .append(" total files will be posted to ")
+                                        .append(fhirUri)
+                                        .append(" for ")
+                                        .append(resourceName);
                             }
 
                             bundledResources.add(resourceSourcePath);
@@ -319,16 +350,88 @@ public abstract class AbstractBundler {
         System.out.println(message.toString());
     }
 
+
     private void reportProgress(int count, int total) {
         double percentage = (double) count / total * 100;
         System.out.print("\rBundle " + getResourceProcessorType() + "s: " + String.format("%.2f%%", percentage) + " processed.");
     }
 
-    private String getResourcePrefix() {
-        return getResourceProcessorType().toLowerCase() + "-";
+    private String getResourceTestGroupName() {
+        return getResourceProcessorType().toLowerCase();
     }
 
-    protected abstract Set<String> getPaths(FhirContext fhirContext);
+    private String persistBundle(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, List<IBaseResource> resources, String fhirUri, Boolean addBundleTimestamp) {
+        IOUtils.initializeDirectory(bundleDestPath);
+
+        Object bundle = BundleUtils.bundleArtifacts(libraryName, resources, fhirContext, addBundleTimestamp, this.getIdentifiers());
+        IOUtils.writeBundle(bundle, bundleDestPath, encoding, fhirContext);
+        try {
+            HttpClientUtils.post(fhirUri, (IBaseResource) bundle, encoding, fhirContext, bundleDestPath, true);
+        } catch (IOException e) {
+            LogUtils.putException(bundleDestPath, "Error posting to FHIR Server: " + fhirUri + ".  Bundle not posted.");
+        }
+        return bundleDestPath;
+    }
+
+    protected List<String> persistFileList(IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, File[] filesInDir, boolean withPriority) {
+
+        List<String> postedResourcesFileLocations = new ArrayList<>();
+
+        if (!(filesInDir == null || filesInDir.length == 0)) {
+            for (File file : filesInDir) {
+                String failMsg = "Bundle Measures failed to persist resource " + file.getAbsolutePath();
+                try {
+                    //ensure the resource can be posted
+                    try {
+                        IBaseResource resource = IOUtils.readResource(file.getAbsolutePath(), fhirContext, true);
+                        if (resource != null) {
+                            try {
+                                HttpClientUtils.post(fhirUri, resource, encoding, fhirContext, file.getAbsolutePath(), withPriority);
+                                postedResourcesFileLocations.add(file.getAbsolutePath());
+                            } catch (IOException e) {
+                                LogUtils.putException(file.getAbsolutePath(), "Error posting to FHIR Server: " + fhirUri + ".  Bundle not posted.");
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.out.println(failMsg);
+                    }
+
+                } catch (Exception e) {
+                    //resource is likely not IBaseResource
+                    logger.error("persistTestFiles", e);
+                }
+            }
+        }
+        return postedResourcesFileLocations;
+    }
+
+    private List<String> persistTestFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri) {
+        List<String> postedResourcesFileLocations = new ArrayList<>();
+        String filesLoc = bundleDestPath + File.separator + libraryName + "-files";
+        File directory = new File(filesLoc);
+        if (directory.exists()) {
+            File[] filesInDir = directory.listFiles((dir, name) -> name.toLowerCase().startsWith("tests-"));
+            postedResourcesFileLocations.addAll(persistFileList(encoding, fhirContext, fhirUri, filesInDir, true));
+        }
+        return postedResourcesFileLocations;
+    }
+
+    private List<String> persistRemainingFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, List<String> previouslyPostedResourcesFileLocations) {
+        List<String> postedResourcesFileLocations = new ArrayList<>();
+        String filesLoc = bundleDestPath + File.separator + libraryName + "-files";
+        File directory = new File(filesLoc);
+        if (directory.exists()) {
+            File[] filesInDir = directory.listFiles((dir, name) ->
+                    (name.toLowerCase().endsWith(".cql") ||
+                            name.toLowerCase().endsWith(".xml") ||
+                            name.toLowerCase().endsWith(".json"))
+                            &&
+                            (!previouslyPostedResourcesFileLocations.contains(dir + separator + name))
+            );
+            postedResourcesFileLocations.addAll(persistFileList(encoding, fhirContext, fhirUri, filesInDir, false));
+        }
+        return postedResourcesFileLocations;
+    }
 
     private String bundleFiles(String igPath, String bundleDestPath, String primaryLibraryName, List<String> binaryPaths, String resourceFocusSourcePath,
                                String librarySourcePath, FhirContext fhirContext, IOUtils.Encoding encoding, Boolean includeTerminology, Boolean includeDependencies, Boolean includePatientScenarios,
@@ -375,32 +478,6 @@ public abstract class AbstractBundler {
         }
 
         return bundleMessage;
-    }
-
-
-    private String persistBundle(String igPath, String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, List<IBaseResource> resources, String fhirUri, Boolean addBundleTimestamp) {
-        IOUtils.initializeDirectory(bundleDestPath);
-
-        Object bundle = BundleUtils.bundleArtifacts(libraryName, resources, fhirContext, addBundleTimestamp, this.getIdentifiers());
-        IOUtils.writeBundle(bundle, bundleDestPath, encoding, fhirContext);
-
-        BundleUtils.postBundle(encoding, fhirContext, fhirUri, (IBaseResource) bundle, bundleDestPath);
-        return bundleDestPath;
-    }
-
-    protected abstract void persistOtherFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri, String builtBundleDestPath);
-
-    protected abstract String getSourcePath(FhirContext fhirContext, Map.Entry<String, IBaseResource> resourceEntry);
-
-    /**
-     * Handled by the child class in gathering specific IBaseResources
-     */
-    protected abstract Map<String, IBaseResource> getResources(FhirContext fhirContext);
-
-    protected abstract String getResourceProcessorType();
-
-    private String getResourceTestGroupName() {
-        return getResourceProcessorType().toLowerCase();
     }
 
 

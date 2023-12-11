@@ -39,7 +39,8 @@ public class HttpClientUtils {
     private static final String FHIR_CONTEXT = "FHIR Context";
 
     //This is not to maintain a thread count, but rather to maintain the maximum number of POST calls that can simultaneously be waiting for a response from the server.
-    //TODO:Allow users to specify this value on their own with an argument passed into operation so that more robust servers can process post list faster
+    //This gives us some control over how many POSTs we're making so we don't crash the server.
+    //possible TODO:Allow users to specify this value on their own with arg passed into operation so that more robust servers can process post list faster
     private static final int MAX_SIMULTANEOUS_POST_COUNT = 10;
 
     //failedPostCalls needs to maintain the details built in the FAILED message, as well as a copy of the inputs for a retry by the user on failed posts.
@@ -203,41 +204,28 @@ public class HttpClientUtils {
      */
     private static Callable<Void> createPostCallable(HttpPost post, PostComponent postComponent) {
         return () -> {
-            boolean posted = false;
             String resourceIdentifier = (postComponent.fileLocation != null ?
                     Paths.get(postComponent.fileLocation).getFileName().toString()
                     :
                     postComponent.resource.getIdElement().getIdPart());
-            String reportMessage = "[SUCCESS] Resource successfully posted to " + postComponent.fhirServerUrl + ": " + resourceIdentifier;
-
             try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
-
                 HttpResponse response = httpClient.execute(post);
                 StatusLine statusLine = response.getStatusLine();
                 int statusCode = statusLine.getStatusCode();
                 String diagnosticString = getDiagnosticString(EntityUtils.toString(response.getEntity()));
 
-
-
-
                 if (statusCode >= 200 && statusCode < 300) {
-                    posted = true;
-                    successfulPostCalls.add(reportMessage);
+                    successfulPostCalls.add("[SUCCESS] Resource successfully posted to " + postComponent.fhirServerUrl + ": " + resourceIdentifier);
                 } else {
-                    reportMessage = "[FAIL] Error " + statusCode + " from " + postComponent.fhirServerUrl + ": " + resourceIdentifier + ": " + diagnosticString;
-                    failedPostCalls.add(Pair.of(reportMessage, postComponent));
+                    failedPostCalls.add(Pair.of("[FAIL] Error " + statusCode + " from " + postComponent.fhirServerUrl + ": " + resourceIdentifier + ": " + diagnosticString, postComponent));
                 }
 
-            } catch (IOException e) {
-                reportMessage = "[FAIL] Error while making the POST request: " + e.getMessage();
-                failedPostCalls.add(Pair.of(reportMessage, postComponent));
             } catch (Exception e) {
-                reportMessage = "[FAIL] Error during POST request execution: " + e.getMessage();
-                failedPostCalls.add(Pair.of(reportMessage, postComponent));
+                failedPostCalls.add(Pair.of("[FAIL] Exception during " + resourceIdentifier + " POST request execution to " + postComponent.fhirServerUrl + ": " + e.getMessage(), postComponent));
             }
 
             runningPostTaskList.remove(postComponent.resource.getIdElement().getIdPart());
-            reportProgress(reportMessage);
+            reportProgress();
             return null;
         };
     }
@@ -279,19 +267,11 @@ public class HttpClientUtils {
      * relative to the total number of tasks. It also displays the current size of the running thread pool. The progress
      * and pool size information is printed to the standard output.
      */
-    private static void reportProgress(String reportedMessage) {
+    private static void reportProgress() {
         int currentCounter = processedPostCounter++;
         double percentage = (double) currentCounter / getTotalTaskCount() * 100;
-        String output = "\rPOST calls: " + String.format("%.2f%%", percentage) + " processed. POST response pool size: " + runningPostTaskList.size() + " " + reportedMessage;
-        if (output.length() > maxReportProcessMessageLength){
-            maxReportProcessMessageLength = output.length();
-        }
-        System.out.printf("%-" + maxReportProcessMessageLength + "s", output);
+        System.out.print("\rPOST calls: " + String.format("%.2f%%", percentage) + " processed. POST response pool size: " + runningPostTaskList.size() + ". ");
     }
-    /*
-    used to maintain a clean output on a single line
-     */
-    private static int maxReportProcessMessageLength = 0;
 
     private static int getTotalTaskCount() {
         return tasks.size() + initialTasks.size();

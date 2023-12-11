@@ -1,6 +1,7 @@
 package org.opencds.cqf.tooling.common;
 
 import org.opencds.cqf.tooling.common.r4.CqfmSoftwareSystemHelper;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -17,53 +18,56 @@ import static org.testng.Assert.assertTrue;
 
 public class ThreadUtilsTest {
 
+    private int x = 0;
+    @BeforeTest
+    public void setup(){
+        x = 0;
+    }
     @Test
     public void testExecute() {
         ExecutorService executorService = Executors.newCachedThreadPool();
-        AtomicInteger x = new AtomicInteger();
         List<Callable<Void>> tasks = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             tasks.add(() -> {
-                x.set(x.get() + 1);
+                x++;
                 return null;
             });
         }
         ThreadUtils.executeTasks(tasks, executorService);
         assertTrue(executorService.isShutdown());
-        int finalX = x.get();
-        assertEquals(finalX, 5);
+        assertEquals(x, 5);
     }
 
     @Test
     public void testShutdown() {
         ExecutorService executorService = Executors.newCachedThreadPool();
-        AtomicInteger x = new AtomicInteger();
         List<Callable<Void>> tasks = new ArrayList<>();
-        for (int i = 1; i <= 50; i++) {
+        int max = 100000;
+        for (int i = 1; i <= max; i++) {
             tasks.add(() -> {
-                x.set(x.get() + 1);
-                if (x.get() == 15) ThreadUtils.shutdownRunningExecutors();
+                x++;
+                if (x == 15) ThreadUtils.shutdownRunningExecutors();
                 return null;
             });
         }
         ThreadUtils.executeTasks(tasks, executorService);
+
+        assertTrue(x < max);
+
         assertTrue(executorService.isShutdown());
-        int finalX = x.get();
-        assertTrue(finalX < 45);
     }
 
-    private int intX = 0;
     @Test
     public void testExecuteWithQueueList() {
         Queue<Callable<Void>> returnTasks = new ConcurrentLinkedQueue<>(testWithX());
         ThreadUtils.executeTasks(returnTasks );
-        assertEquals(intX, 100);
+        assertEquals(x, 100);
     }
 
     private Queue<Callable<Void>> testWithX(){
         Queue<Callable<Void>> returnable = new ConcurrentLinkedQueue<>();
-        intX = intX + 1;
-        if (intX < 100){
+        x++;
+        if (x < 100){
             returnable.addAll(testWithX());
         }
         return returnable;

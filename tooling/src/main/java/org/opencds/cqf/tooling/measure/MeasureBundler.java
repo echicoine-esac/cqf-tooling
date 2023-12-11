@@ -7,10 +7,12 @@ import org.opencds.cqf.tooling.utilities.BundleUtils;
 import org.opencds.cqf.tooling.utilities.IOUtils;
 import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 
-import java.io.File;
-import java.io.FilenameFilter;
-import java.util.Map;
-import java.util.Set;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MeasureBundler extends AbstractBundler {
@@ -28,7 +30,13 @@ public class MeasureBundler extends AbstractBundler {
         // persistFilesWithFilter(bundleDestPath, libraryName, encoding, fhirContext, fhirUri, "group-");
 
         String filesLoc = bundleDestPath + File.separator + libraryName + "-files";
+
+        findAndPrintDuplicateFiles(filesLoc);
+
         File directory = new File(filesLoc);
+
+
+
         if (directory.exists()) {
 
             //we want all files in -files directory that end in .xml, .json, or .cql
@@ -60,7 +68,56 @@ public class MeasureBundler extends AbstractBundler {
             }
         }
     }
+    public static void findAndPrintDuplicateFiles(String directoryPath) {
+        try {
+            Map<String, List<File>> fileHashes = new HashMap<>();
 
+            Files.walk(Paths.get(directoryPath))
+                    .filter(Files::isRegularFile)
+                    .forEach(file -> {
+                        try {
+                            String hash = calculateFileHash(file.toFile());
+                            fileHashes.computeIfAbsent(hash, k -> new ArrayList<>()).add(file.toFile());
+                        } catch (IOException | NoSuchAlgorithmException e) {
+                            e.printStackTrace();
+                        }
+                    });
+
+            // Print duplicates
+            fileHashes.forEach((hash, fileList) -> {
+                if (fileList.size() > 1) {
+                    System.out.println("Files with the same content (Hash: " + hash + "):");
+                    fileList.forEach(System.out::println);
+                    System.out.println();
+                }
+            });
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String calculateFileHash(File file) throws IOException, NoSuchAlgorithmException {
+        MessageDigest md5Digest = MessageDigest.getInstance("MD5");
+
+        try (InputStream is = new FileInputStream(file)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = is.read(buffer)) > 0) {
+                md5Digest.update(buffer, 0, read);
+            }
+        }
+
+        byte[] hashBytes = md5Digest.digest();
+
+        // Convert to hex
+        StringBuilder hexHash = new StringBuilder();
+        for (byte hashByte : hashBytes) {
+            hexHash.append(String.format("%02x", hashByte));
+        }
+
+        return hexHash.toString();
+    }
 //    protected void persistFilesWithFilter(String bundleDestPath, String libraryName, Encoding encoding, FhirContext fhirContext, String fhirUri, String startsWithFilter) {
 //
 //        String filesLoc = bundleDestPath + File.separator + libraryName + "-files";

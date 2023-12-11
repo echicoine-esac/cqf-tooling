@@ -29,7 +29,6 @@ import java.io.UnsupportedEncodingException;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -48,7 +47,7 @@ public class HttpClientUtils {
     private static List<String> successfulPostCalls = new CopyOnWriteArrayList<>();
     private static Map<String, Callable<Void>> tasks = new ConcurrentHashMap<>();
     private static List<String> runningPostTaskList = new CopyOnWriteArrayList<>();
-    private static final AtomicInteger processedPostCounter = new AtomicInteger(0);
+    private static int processedPostCounter = 0;
     private HttpClientUtils() {}
 
     public static boolean hasPostTasksInQueue() {
@@ -263,7 +262,7 @@ public class HttpClientUtils {
      * and pool size information is printed to the standard output.
      */
     private static void reportProgress() {
-        int currentCounter = processedPostCounter.incrementAndGet();
+        int currentCounter = processedPostCounter++;
         double percentage = (double) currentCounter / tasks.size() * 100;
         System.out.print("\rPOST calls: " + String.format("%.2f%%", percentage) + " processed. Thread pool size: " + runningPostTaskList.size() + " ");
     }
@@ -416,7 +415,7 @@ public class HttpClientUtils {
         failedPostCalls = new ConcurrentLinkedQueue<>();
         successfulPostCalls = new CopyOnWriteArrayList<>();
         tasks = new ConcurrentHashMap<>();
-        processedPostCounter.set(0);
+        processedPostCounter = 0;
         runningPostTaskList = new CopyOnWriteArrayList<>();
     }
 

@@ -35,6 +35,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 public class CqlProcessor {
 
@@ -501,30 +502,10 @@ public class CqlProcessor {
         return errors;
     }
 
-    private static Map<CqlCompilerException.ErrorSeverity, List<CqlCompilerException>> categorizeCqlExceptions(List<CqlCompilerException> errors) {
-
-        List<CqlCompilerException> infosList = new ArrayList<>();
-        List<CqlCompilerException> warningsList = new ArrayList<>();
-        List<CqlCompilerException> errorList = new ArrayList<>();
-
-        for (CqlCompilerException exception : errors) {
-            if (exception.getSeverity().equals(CqlCompilerException.ErrorSeverity.Info)) {
-                infosList.add(exception);
-            } else if (exception.getSeverity().equals(CqlCompilerException.ErrorSeverity.Warning)) {
-                warningsList.add(exception);
-            } else if (exception.getSeverity().equals(CqlCompilerException.ErrorSeverity.Error)) {
-                errorList.add(exception);
-            }
-        }
-
-        Map<CqlCompilerException.ErrorSeverity, List<CqlCompilerException>> errorMap = new HashMap<>();
-
-        errorMap.put(CqlCompilerException.ErrorSeverity.Info, infosList);
-        errorMap.put(CqlCompilerException.ErrorSeverity.Warning, warningsList);
-        errorMap.put(CqlCompilerException.ErrorSeverity.Error, errorList);
-
-
-        return errorMap;
+    private static List<CqlCompilerException> listBySeverity(List<CqlCompilerException> errors, CqlCompilerException.ErrorSeverity errorSeverity) {
+        return errors.stream()
+                .filter(exception -> exception.getSeverity() == errorSeverity)
+                .collect(Collectors.toList());
     }
 
     public static String buildStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors){
@@ -532,22 +513,19 @@ public class CqlProcessor {
     }
 
     public static String buildStatusMessage(List<CqlCompilerException> errors, String resourceName, boolean includeErrors, boolean withStatusIndicator, String delimiter){
-        //separate out exceptions by their severity to determine the messaging to the user:
-        Map<CqlCompilerException.ErrorSeverity, List<CqlCompilerException>> errorMap = CqlProcessor.categorizeCqlExceptions(errors);
-
-        List<CqlCompilerException> infosList = errorMap.getOrDefault(CqlCompilerException.ErrorSeverity.Info, new ArrayList<>());
-        List<CqlCompilerException> warningsList = errorMap.getOrDefault(CqlCompilerException.ErrorSeverity.Warning, new ArrayList<>());
-        List<CqlCompilerException> errorList = errorMap.getOrDefault(CqlCompilerException.ErrorSeverity.Error, new ArrayList<>());
-
-        List<String> fullSortedList = new ArrayList<>();
-        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(infosList));
-        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(warningsList));
-        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(errorList));
-        Collections.sort(fullSortedList);
-        String fullSortedListMsg = String.join(delimiter, fullSortedList);
-
-        String statusIndicator;
+        String successMsg = "[SUCCESS] CQL Processing of ";
         String statusIndicatorMinor = " completed successfully";
+        String statusIndicator;
+
+        //empty list means no errors, so success
+        if (errors == null || errors.isEmpty()){
+            return successMsg + resourceName + statusIndicatorMinor;
+        }
+
+        //separate out exceptions by their severity to determine the messaging to the user:
+        List<CqlCompilerException> infosList = listBySeverity(errors, CqlCompilerException.ErrorSeverity.Info);
+        List<CqlCompilerException> warningsList = listBySeverity(errors, CqlCompilerException.ErrorSeverity.Warning);
+        List<CqlCompilerException> errorList = listBySeverity(errors, CqlCompilerException.ErrorSeverity.Error);
 
         if (!errorList.isEmpty()) {
             statusIndicator = "[FAIL] ";
@@ -557,8 +535,14 @@ public class CqlProcessor {
         } else if (!infosList.isEmpty()) {
             statusIndicator = "[INFO] ";
         } else {
-            return "[SUCCESS] CQL Processing of " + resourceName + statusIndicatorMinor;
+            return successMsg + resourceName + statusIndicatorMinor;
         }
+        List<String> fullSortedList = new ArrayList<>();
+        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(infosList));
+        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(warningsList));
+        fullSortedList.addAll(CqlProcessor.listTranslatorErrors(errorList));
+        Collections.sort(fullSortedList);
+        String fullSortedListMsg = String.join(delimiter, fullSortedList);
 
         String errorsStatus =  errorList.size() + " Error(s)" ;
         String infoStatus =  infosList.size() + " Information Message(s)" ;

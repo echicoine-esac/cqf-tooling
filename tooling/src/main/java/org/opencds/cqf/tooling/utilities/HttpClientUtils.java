@@ -299,7 +299,6 @@ public class HttpClientUtils {
             double percentage = 0;
             System.out.print("\rPOST: " + String.format("%.2f%%", percentage) + " done. ");
 
-
             //execute any tasks marked as having priority:
             executeTasks(executorService, initialTasks);
 
@@ -339,23 +338,11 @@ public class HttpClientUtils {
                             throw new RuntimeException(e);
                         }
                     }
-
-
                     //execute any tasks marked as having priority:
                     executeTasks(executorService, initialTasks);
 
                     //execute the remaining tasks:
                     executeTasks(executorService, tasks);
-
-//                    for (Callable<Void> task : tasks.values()) {
-//                        try {
-//                            task.call();
-//                        } catch (Exception e) {
-//                            throw new RuntimeException(e);
-//                        }
-//                        threadSleep(50);
-//                    }
-
                     if (failedPostCalls.isEmpty()) {
                         System.out.println("Retry successful, all tasks successfully posted");
                     }
@@ -450,7 +437,6 @@ public class HttpClientUtils {
         initialTasks = new ConcurrentHashMap<>();
         processedPostCounter = 0;
         runningPostTaskList = new CopyOnWriteArrayList<>();
-        maxReportProcessMessageLength = 0;
     }
 
     public static String get(String path) throws IOException {

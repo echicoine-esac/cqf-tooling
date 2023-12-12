@@ -220,7 +220,6 @@ public class RefreshIGOperationTest extends RefreshTest {
 		// run cleanup (maven runs all ci tests sequentially and static member variables could retain values from previous tests)
 		IOUtils.cleanUp();
 		ResourceUtils.cleanUp();
-		TestCaseProcessor.cleanUp();
     }
 
     private static int findAvailablePort() {

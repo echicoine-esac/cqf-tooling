@@ -79,7 +79,6 @@ public class IGBundleProcessor {
         // run cleanup (maven runs all ci tests sequentially and static member variables could retain values from previous tests)
         IOUtils.cleanUp();
         ResourceUtils.cleanUp();
-        TestCaseProcessor.cleanUp();
     }
 
     private String getTime() {

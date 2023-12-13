@@ -1,5 +1,7 @@
 package org.opencds.cqf.tooling.questionnaire;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,6 +33,12 @@ public class QuestionnaireBundler extends AbstractBundler {
     @Override
     protected String getResourceProcessorType() {
         return TYPE_QUESTIONNAIRE;
+    }
+
+    @Override
+    protected List<String> persistExtraFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri) {
+        //do nothing
+        return new ArrayList<>();
     }
 
     @Override

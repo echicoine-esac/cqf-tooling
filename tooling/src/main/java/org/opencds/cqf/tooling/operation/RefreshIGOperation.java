@@ -27,7 +27,7 @@ public class RefreshIGOperation extends Operation {
         }
 
         if (params.includeErrors == null || !params.includeErrors) {
-            System.out.println("\r\n\t[ALERT] Error information suppressed. Re-run with -x to show full error information during refresh.\r\n");
+            System.out.println("\r\nRe-run with -x to for expanded reporting of errors, warnings, and informational messages.\r\n");
         }
 
         new IGProcessor().publishIG(params);

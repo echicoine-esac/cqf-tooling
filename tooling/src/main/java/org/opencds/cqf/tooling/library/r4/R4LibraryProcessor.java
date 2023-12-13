@@ -2,10 +2,9 @@ package org.opencds.cqf.tooling.library.r4;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Map;
 
 import com.google.common.base.Strings;
 
@@ -14,7 +13,6 @@ import org.hl7.fhir.convertors.conv40_50.VersionConvertor_40_50;
 import org.hl7.fhir.r4.formats.FormatUtilities;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.Resource;
-import org.opencds.cqf.tooling.common.ThreadUtils;
 import org.opencds.cqf.tooling.common.r4.CqfmSoftwareSystemHelper;
 import org.opencds.cqf.tooling.library.LibraryProcessor;
 import org.opencds.cqf.tooling.parameter.RefreshLibraryParameters;
@@ -24,7 +22,9 @@ import org.opencds.cqf.tooling.utilities.IOUtils.Encoding;
 import ca.uhn.fhir.context.FhirContext;
 
 public class R4LibraryProcessor extends LibraryProcessor {
+    private String libraryPath;
     private FhirContext fhirContext;
+    private Encoding encoding;
     private static CqfmSoftwareSystemHelper cqfmHelper;
 
     private String getLibraryPath(String libraryPath) {
@@ -51,49 +51,35 @@ public class R4LibraryProcessor extends LibraryProcessor {
         overwrite all known library resources
     */
     protected List<String> refreshLibraries(String libraryPath, String libraryOutputDirectory, Encoding encoding, Boolean shouldApplySoftwareSystemStamp) {
-        File libraryDir = libraryPath != null ? new File(libraryPath) : null;
+        File file = libraryPath != null ? new File(libraryPath) : null;
+        Map<String, String> fileMap = new HashMap<String, String>();
+        List<org.hl7.fhir.r5.model.Library> libraries = new ArrayList<>();
 
-        ConcurrentHashMap<String, String> fileMap = new ConcurrentHashMap<>();
-        final CopyOnWriteArrayList<org.hl7.fhir.r5.model.Library> libraries = new CopyOnWriteArrayList<>();
-
-        if (libraryDir == null || !libraryDir.exists()) {
-            ArrayList<Callable<Void>> tasks = new ArrayList<>();
+        if (file == null || !file.exists()) {
             for (String path : IOUtils.getLibraryPaths(this.fhirContext)) {
-                tasks.add(() -> {
-                    libraries.addAll(loadLibrary(fileMap, path));
-                    //task requires return statement
-                    return null;
-                });
+                loadLibrary(fileMap, libraries, new File(path));
             }
-            ThreadUtils.executeTasks(tasks);
-        } else if (libraryDir.isDirectory()) {
-            ArrayList<Callable<Void>> tasks = new ArrayList<>();
-            File[] fileList = libraryDir.listFiles();
-            if (fileList != null && fileList.length > 0) {
-                for (File libraryFile : fileList) {
-                    tasks.add(() -> {
-                        if (IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
-                            libraries.addAll(loadLibrary(fileMap, libraryFile.getAbsolutePath()));
-                        }
-                        //task requires return statement
-                        return null;
-                    });
+        }
+        else if (file.isDirectory()) {
+            for (File libraryFile : file.listFiles()) {
+                if(IOUtils.isXMLOrJson(libraryPath, libraryFile.getName())) {
+                    loadLibrary(fileMap, libraries, libraryFile);
                 }
-                ThreadUtils.executeTasks(tasks);
             }
-        } else {
-            libraries.addAll(loadLibrary(fileMap, libraryDir.getAbsolutePath()));
+        }
+        else {
+            loadLibrary(fileMap, libraries, file);
         }
 
-        List<String> refreshedLibraryNames = new ArrayList<>();
+        List<String> refreshedLibraryNames = new ArrayList<String>();
         List<org.hl7.fhir.r5.model.Library> refreshedLibraries = super.refreshGeneratedContent(libraries);
         VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
-
         for (org.hl7.fhir.r5.model.Library refreshedLibrary : refreshedLibraries) {
             Library library = (Library) versionConvertor_40_50.convertResource(refreshedLibrary);
             String filePath = null;
             Encoding fileEncoding = null;
-            if (fileMap.containsKey(refreshedLibrary.getId())) {
+            if (fileMap.containsKey(refreshedLibrary.getId()))
+            {
                 filePath = fileMap.get(refreshedLibrary.getId());
                 fileEncoding = IOUtils.getEncoding(filePath);
             } else {
@@ -130,38 +116,35 @@ public class R4LibraryProcessor extends LibraryProcessor {
                 }
                 refreshedLibraryNames.add(refreshedLibraryName);
             }
-
         }
 
         return refreshedLibraryNames;
     }
 
-    private List<org.hl7.fhir.r5.model.Library> loadLibrary(ConcurrentHashMap<String, String> fileMap, String libraryFilePath) {
-
-        List<org.hl7.fhir.r5.model.Library> libraries = new ArrayList<>();
+    private void loadLibrary(Map<String, String> fileMap, List<org.hl7.fhir.r5.model.Library> libraries, File libraryFile) {
         try {
-            Resource resource = FormatUtilities.loadFile(libraryFilePath);
+            Resource resource = FormatUtilities.loadFile(libraryFile.getAbsolutePath());
             VersionConvertor_40_50 versionConvertor_40_50 = new VersionConvertor_40_50(new BaseAdvisor_40_50());
             org.hl7.fhir.r5.model.Library library = (org.hl7.fhir.r5.model.Library) versionConvertor_40_50.convertResource(resource);
-            fileMap.put(library.getId(), libraryFilePath);
+            fileMap.put(library.getId(), libraryFile.getAbsolutePath());
             libraries.add(library);
         } catch (Exception ex) {
-            logMessage(String.format("Error reading library: %s. Error: %s", libraryFilePath, ex.getMessage()));
+            logMessage(String.format("Error reading library: %s. Error: %s", libraryFile.getAbsolutePath(), ex.getMessage()));
         }
-        return libraries;
     }
 
     @Override
     public List<String> refreshLibraryContent(RefreshLibraryParameters params) {
         if (params.parentContext != null) {
             initialize(params.parentContext);
-        } else {
+        }
+        else {
             initializeFromIni(params.ini);
         }
 
-        String libraryPath = params.libraryPath;
+        libraryPath = params.libraryPath;
         fhirContext = params.fhirContext;
-        Encoding encoding = params.encoding;
+        encoding = params.encoding;
         versioned = params.versioned;
 
         R4LibraryProcessor.cqfmHelper = new CqfmSoftwareSystemHelper(rootDir);

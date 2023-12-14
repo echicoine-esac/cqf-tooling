@@ -27,7 +27,7 @@ public class IGProcessor extends BaseProcessor {
     private static final Logger logger = LoggerFactory.getLogger(IGProcessor.class);
     public static final String IG_VERSION_REQUIRED = "igVersion required";
     public static final String CQL_LIBRARY_PATH_ELEMENT = "input/pagecontent/cql/";
-    public static final String LIB_PATH_ELEMENT = "input/resources/library/";
+    public static final String LIBRARY_PATH_ELEMENT = "input/resources/library/";
     public static final String MEASURE_PATH_ELEMENT = "input/resources/measure/";
     public static final String PLAN_DEFINITION_PATH_ELEMENT = "input/resources/plandefinition/";
     public static final String VALUE_SETS_PATH_ELEMENT = "input/vocabulary/valueset/";
@@ -209,14 +209,14 @@ public class IGProcessor extends BaseProcessor {
         }
         if (resourcePaths.isEmpty()) {
             ensureDirectory(igPath, IGProcessor.CQL_LIBRARY_PATH_ELEMENT);
-            ensureDirectory(igPath, IGProcessor.LIB_PATH_ELEMENT);
+            ensureDirectory(igPath, IGProcessor.LIBRARY_PATH_ELEMENT);
             ensureDirectory(igPath, IGProcessor.MEASURE_PATH_ELEMENT);
             ensureDirectory(igPath, IGProcessor.PLAN_DEFINITION_PATH_ELEMENT);
             ensureDirectory(igPath, IGProcessor.VALUE_SETS_PATH_ELEMENT);
             ensureDirectory(igPath, IGProcessor.TEST_CASE_PATH_ELEMENT);
         } else {
             checkForDirectory(igPath, IGProcessor.CQL_LIBRARY_PATH_ELEMENT);
-            checkForDirectory(igPath, IGProcessor.LIB_PATH_ELEMENT);
+            checkForDirectory(igPath, IGProcessor.LIBRARY_PATH_ELEMENT);
             checkForDirectory(igPath, IGProcessor.MEASURE_PATH_ELEMENT);
             checkForDirectory(igPath, IGProcessor.PLAN_DEFINITION_PATH_ELEMENT);
             checkForDirectory(igPath, IGProcessor.VALUE_SETS_PATH_ELEMENT);

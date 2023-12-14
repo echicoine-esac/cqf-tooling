@@ -45,15 +45,13 @@ import ca.uhn.fhir.context.FhirContext;
 public class LibraryProcessor extends BaseProcessor {
     private static final Logger logger = LoggerFactory.getLogger(LibraryProcessor.class);
     public static final String ResourcePrefix = "library-";
-
     public static String getId(String baseId) {
         return ResourcePrefix + baseId;
     }
-
     private static Pattern pattern;
 
     private static Pattern getPattern() {
-        if (pattern == null) {
+        if(pattern == null) {
             String regex = "^[a-zA-Z]+[a-zA-Z0-9_\\-\\.]*";
             pattern = Pattern.compile(regex);
         }
@@ -61,7 +59,7 @@ public class LibraryProcessor extends BaseProcessor {
     }
 
     public static void validateIdAlphaNumeric(String id) {
-        if (!getPattern().matcher(id).find()) {
+        if(!getPattern().matcher(id).find()) {
             throw new RuntimeException("The library id format is invalid.");
         }
     }
@@ -74,24 +72,9 @@ public class LibraryProcessor extends BaseProcessor {
         return refreshIgLibraryContent(parentContext, outputEncoding, null, libraryOutputDirectory, versioned, fhirContext, shouldApplySoftwareSystemStamp);
     }
 
-    /**
-     * Refreshes the content of an Implementation Guide (IG) library using a thread-safe
-     * {@link java.util.concurrent.CopyOnWriteArrayList} for thread-safe access multithreading capability.
-     *
-     * @param parentContext                  The parent processor context for the IG library refresh.
-     * @param outputEncoding                 The encoding to be used for the refreshed library content.
-     * @param libraryPath                    The path to the IG library. If null, a default path is used.
-     * @param libraryOutputDirectory         The output directory for the refreshed libraries. If empty,
-     *                                       existing libraries will be overwritten.
-     * @param versioned                      Indicates whether the library content should be versioned.
-     * @param fhirContext                    The FHIR context specifying the version of the FHIR standard to be used.
-     * @param shouldApplySoftwareSystemStamp Indicates whether a software system stamp should be applied to the library.
-     * @return A thread-safe list of strings containing the names of the refreshed libraries.
-     * @throws IllegalArgumentException if an unknown FHIR version is encountered.
-     */
     public List<String> refreshIgLibraryContent(BaseProcessor parentContext, Encoding outputEncoding, String libraryPath, String libraryOutputDirectory, Boolean versioned, FhirContext fhirContext, Boolean shouldApplySoftwareSystemStamp) {
-
         System.out.println("\r\n[Refreshing Libraries]\r\n");
+        // ArrayList<String> refreshedLibraryNames = new ArrayList<String>();
 
         LibraryProcessor libraryProcessor;
         switch (fhirContext.getVersion().getVersion()) {
@@ -107,8 +90,9 @@ public class LibraryProcessor extends BaseProcessor {
         }
 
         if (libraryPath == null) {
-            libraryPath = FilenameUtils.concat(parentContext.getRootDir(), IGProcessor.LIB_PATH_ELEMENT);
-        } else if (!Utilities.isAbsoluteFileName(libraryPath)) {
+            libraryPath = FilenameUtils.concat(parentContext.getRootDir(), IGProcessor.LIBRARY_PATH_ELEMENT);
+        }
+        else if (!Utilities.isAbsoluteFileName(libraryPath)) {
             libraryPath = FilenameUtils.concat(parentContext.getRootDir(), libraryPath);
         }
         RefreshLibraryParameters params = new RefreshLibraryParameters();
@@ -130,20 +114,20 @@ public class LibraryProcessor extends BaseProcessor {
      * Bundles library dependencies for a given FHIR library file and populates the provided resource map.
      * This method executes asynchronously by invoking the associated task queue.
      *
-     * @param path        The path to the FHIR library file.
-     * @param fhirContext The FHIR context to use for processing resources.
-     * @param resources   The map to populate with library resources.
-     * @param encoding    The encoding to use for reading and processing resources.
-     * @param versioned   A boolean indicating whether to consider versioned resources.
+     * @param path          The path to the FHIR library file.
+     * @param fhirContext   The FHIR context to use for processing resources.
+     * @param resources     The map to populate with library resources.
+     * @param encoding      The encoding to use for reading and processing resources.
+     * @param versioned     A boolean indicating whether to consider versioned resources.
      * @return True if the bundling of library dependencies is successful; false otherwise.
      */
     public Boolean bundleLibraryDependencies(String path, FhirContext fhirContext, Map<String, IBaseResource> resources,
                                              Encoding encoding, boolean versioned) {
-        try {
+        try{
             Queue<Callable<Void>> bundleLibraryDependenciesTasks = bundleLibraryDependenciesTasks(path, fhirContext, resources, encoding, versioned);
             ThreadUtils.executeTasks(bundleLibraryDependenciesTasks);
             return true;
-        } catch (Exception e) {
+        }catch (Exception e){
             return false;
         }
 
@@ -153,13 +137,13 @@ public class LibraryProcessor extends BaseProcessor {
      * Recursively bundles library dependencies for a given FHIR library file and populates the provided resource map.
      * Each dependency is added as a Callable task to be executed asynchronously.
      *
-     * @param path        The path to the FHIR library file.
-     * @param fhirContext The FHIR context to use for processing resources.
-     * @param resources   The map to populate with library resources.
-     * @param encoding    The encoding to use for reading and processing resources.
-     * @param versioned   A boolean indicating whether to consider versioned resources.
+     * @param path          The path to the FHIR library file.
+     * @param fhirContext   The FHIR context to use for processing resources.
+     * @param resources     The map to populate with library resources.
+     * @param encoding      The encoding to use for reading and processing resources.
+     * @param versioned     A boolean indicating whether to consider versioned resources.
      * @return A queue of Callable tasks, each representing the bundling of a library dependency.
-     * The Callable returns null (Void) and is meant for asynchronous execution.
+     *         The Callable returns null (Void) and is meant for asynchronous execution.
      */
     public Queue<Callable<Void>> bundleLibraryDependenciesTasks(String path, FhirContext fhirContext, Map<String, IBaseResource> resources,
                                                                 Encoding encoding, boolean versioned) {
@@ -185,14 +169,14 @@ public class LibraryProcessor extends BaseProcessor {
                 });
             }
         } catch (Exception e) {
-            logger.error("Exception in bundleLibraryDependenciesTasks for + " + path, e);
+            logger.error(path, e);
             //purposely break addAll:
             return null;
         }
         return returnTasks;
     }
 
-    protected volatile boolean versioned;
+    protected boolean versioned;
 
     /*
     Refreshes generated content in the given library.
@@ -265,7 +249,7 @@ public class LibraryProcessor extends BaseProcessor {
             optionsReferenceValue = "#options";
             optionsReference.setReference(optionsReferenceValue);
         }
-        Parameters optionsParameters = (Parameters) sourceLibrary.getContained(optionsReferenceValue);
+        Parameters optionsParameters = (Parameters)sourceLibrary.getContained(optionsReferenceValue);
         if (optionsParameters == null) {
             optionsParameters = new Parameters();
             optionsParameters.setId(optionsReferenceValue.substring(1));
@@ -306,8 +290,7 @@ public class LibraryProcessor extends BaseProcessor {
         }
         setBinaryPaths(result);
 
-        //multithreaded:
-        List<Library> libraries = new ArrayList<>();
+        List<Library> libraries = new ArrayList<Library>();
         return internalRefreshGeneratedContent(libraries);
     }
 
@@ -320,52 +303,39 @@ public class LibraryProcessor extends BaseProcessor {
     private List<Library> internalRefreshGeneratedContent(List<Library> sourceLibraries) {
         getCqlProcessor().execute();
 
-        //build list of tasks via for loop:
-        ArrayList<Callable<Void>> getFileInfoTasks = new ArrayList<>();
-
         // For each CQL file, ensure that there is a Library resource with a matching name and version
         for (CqlProcessor.CqlSourceFileInformation fileInfo : getCqlProcessor().getAllFileInformation()) {
-            getFileInfoTasks.add(() -> {
-
-                if (fileInfo.getIdentifier() != null && fileInfo.getIdentifier().getId() != null && !fileInfo.getIdentifier().getId().equals("")) {
-                    Library existingLibrary = null;
-                    for (Library sourceLibrary : sourceLibraries) {
-                        if (fileInfo.getIdentifier().getId().equals(sourceLibrary.getName())
-                                && (fileInfo.getIdentifier().getVersion() == null || fileInfo.getIdentifier().getVersion().equals(sourceLibrary.getVersion()))
-                        ) {
-                            existingLibrary = sourceLibrary;
-                            break;
-                        }
-                    }
-
-                    if (existingLibrary == null) {
-                        Library newLibrary = new Library();
-                        newLibrary.setName(fileInfo.getIdentifier().getId());
-                        newLibrary.setVersion(fileInfo.getIdentifier().getVersion());
-                        newLibrary.setUrl(String.format("%s/Library/%s", (newLibrary.getName().equals("FHIRHelpers") ? "http://hl7.org/fhir" : canonicalBase), fileInfo.getIdentifier().getId()));
-                        newLibrary.setId(newLibrary.getName() + (versioned ? "-" + newLibrary.getVersion() : ""));
-                        setLibraryType(newLibrary);
-                        validateIdAlphaNumeric(newLibrary.getId());
-                        ArrayList<Attachment> attachments = new ArrayList<Attachment>();
-                        Attachment attachment = new Attachment();
-                        attachment.setContentType("application/elm+xml");
-                        attachment.setData(fileInfo.getElm());
-                        attachments.add(attachment);
-                        newLibrary.setContent(attachments);
-                        sourceLibraries.add(newLibrary);
+            if (fileInfo.getIdentifier() != null && fileInfo.getIdentifier().getId() != null && !fileInfo.getIdentifier().getId().equals("")) {
+                Library existingLibrary = null;
+                for (Library sourceLibrary : sourceLibraries) {
+                    if (fileInfo.getIdentifier().getId().equals(sourceLibrary.getName())
+                            && (fileInfo.getIdentifier().getVersion() == null || fileInfo.getIdentifier().getVersion().equals(sourceLibrary.getVersion()))
+                    ) {
+                        existingLibrary = sourceLibrary;
+                        break;
                     }
                 }
-                //task requires return statement
-                return null;
-            });
-        }//end for
 
-        ThreadUtils.executeTasks(getFileInfoTasks);
+                if (existingLibrary == null) {
+                    Library newLibrary = new Library();
+                    newLibrary.setName(fileInfo.getIdentifier().getId());
+                    newLibrary.setVersion(fileInfo.getIdentifier().getVersion());
+                    newLibrary.setUrl(String.format("%s/Library/%s", (newLibrary.getName().equals("FHIRHelpers") ? "http://hl7.org/fhir" : canonicalBase), fileInfo.getIdentifier().getId()));
+                    newLibrary.setId(newLibrary.getName() + (versioned ? "-" + newLibrary.getVersion() : ""));
+                    setLibraryType(newLibrary);
+                    validateIdAlphaNumeric(newLibrary.getId());
+                    List<Attachment> attachments = new ArrayList<Attachment>();
+                    Attachment attachment = new Attachment();
+                    attachment.setContentType("application/elm+xml");
+                    attachment.setData(fileInfo.getElm());
+                    attachments.add(attachment);
+                    newLibrary.setContent(attachments);
+                    sourceLibraries.add(newLibrary);
+                }
+            }
+        }
 
-        //build list of tasks via for loop:
-        ArrayList<Callable<Void>> resourcesTasks = new ArrayList<>();
-
-        List<Library> resources = new ArrayList<>();
+        List<Library> resources = new ArrayList<Library>();
         for (Library library : sourceLibraries) {
             resources.add(refreshGeneratedContent(library));
         }

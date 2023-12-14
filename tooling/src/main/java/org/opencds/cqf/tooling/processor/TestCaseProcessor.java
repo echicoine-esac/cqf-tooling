@@ -148,7 +148,7 @@ public class TestCaseProcessor {
 
                                     groupFileRefreshSuccessMap.put(groupFileIdentifier, "");
 
-                                }catch (Exception e){
+                                } catch (Exception e) {
 
                                     groupFileRefreshFailMap.put(groupFileIdentifier, e.getMessage());
                                 }
@@ -180,16 +180,17 @@ public class TestCaseProcessor {
 
     /**
      * Gives the user a nice report at the end of the refresh test case process (used to report group file status as well)
-     * @param failMap which items failed
-     * @param successMap which items succeeded
-     * @param type group file or test case
-     * @param successType created or refreshed
+     *
+     * @param failMap       which items failed
+     * @param successMap    which items succeeded
+     * @param type          group file or test case
+     * @param successType   created or refreshed
      * @param includeErrors give the exception message if includeErrors is on
      * @return built message for console
      */
-    private StringBuilder buildInformationMessage(Map<String, String> failMap, Map<String, String> successMap, String type, String successType, boolean includeErrors){
+    private StringBuilder buildInformationMessage(Map<String, String> failMap, Map<String, String> successMap, String type, String successType, boolean includeErrors) {
         StringBuilder message = new StringBuilder();
-        if (!successMap.isEmpty() || !failMap.isEmpty()){
+        if (!successMap.isEmpty() || !failMap.isEmpty()) {
             message.append(NEWLINE).append(successMap.size()).append(" ").append(type).append("(s) successfully ").append(successType.toLowerCase()).append(":");
             for (String refreshedTestCase : successMap.keySet()) {
                 message.append(NEWLINE_INDENT).append(refreshedTestCase).append(" ").append(successType.toUpperCase());
@@ -309,7 +310,6 @@ public class TestCaseProcessor {
     }
 
 
-
     //TODO: the bundle needs to have -expectedresults added too
 
     /**
@@ -324,17 +324,13 @@ public class TestCaseProcessor {
      * @param fhirContext         The FHIR context used for reading and processing resources.
      * @return A summary message indicating the number of files copied for the specified test case path.
      */
-    public static String bundleTestCaseFiles(String igPath, String contextResourceType, String libraryName, String destPath, FhirContext fhirContext) {
+    public static void bundleTestCaseFiles(String igPath, String contextResourceType, String libraryName, String destPath, FhirContext fhirContext) {
         String igTestCasePath = FilenameUtils.concat(FilenameUtils.concat(FilenameUtils.concat(igPath, IGProcessor.TEST_CASE_PATH_ELEMENT), contextResourceType), libraryName);
         List<String> testCasePaths = IOUtils.getFilePaths(igTestCasePath, false);
-        int tracker = 0;
         for (String testPath : testCasePaths) {
             String bundleTestDestPath = FilenameUtils.concat(destPath, FilenameUtils.getName(testPath));
-            if (IOUtils.copyFile(testPath, bundleTestDestPath)) {
-                tracker++;
-            }
+            IOUtils.copyFile(testPath, bundleTestDestPath);
         }
-        return "\nBundle Test Case Files: " + tracker + " files copied for " + igTestCasePath;
     }
 
 }

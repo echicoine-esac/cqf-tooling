@@ -305,6 +305,8 @@ public class HttpClientUtils {
             //execute the remaining tasks:
             executeTasks(executorService, tasks);
 
+            reportProgress();
+
             System.out.println("Processing results...");
             Collections.sort(successfulPostCalls);
 

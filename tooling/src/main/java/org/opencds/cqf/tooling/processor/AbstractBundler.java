@@ -126,7 +126,8 @@ public abstract class AbstractBundler {
         //build list of tasks via for loop:
         List<Callable<Void>> tasks = new ArrayList<>();
         try {
-            final StringBuilder bundleTestFileStringBuilder = new StringBuilder();
+
+            final StringBuilder persistedFileReport = new StringBuilder();
             final Map<String, IBaseResource> libraryUrlMap = IOUtils.getLibraryUrlMap(fhirContext);
             final Map<String, IBaseResource> libraries = IOUtils.getLibraries(fhirContext);
             final Map<String, String> libraryPathMap = IOUtils.getLibraryPathMap(fhirContext);
@@ -236,7 +237,7 @@ public abstract class AbstractBundler {
 
                             persistBundle(bundleDestPath, resourceName, encoding, fhirContext, new ArrayList<IBaseResource>(resources.values()), fhirUri, addBundleTimestamp);
 
-                            String possibleBundleTestMessage = bundleFiles(igPath, bundleDestPath, resourceName, binaryPaths, resourceSourcePath,
+                             bundleFiles(igPath, bundleDestPath, resourceName, binaryPaths, resourceSourcePath,
                                     primaryLibrarySourcePath, fhirContext, encoding, includeTerminology, includeDependencies, includePatientScenarios,
                                     includeVersion, addBundleTimestamp, cqlTranslatorErrorMessages);
 
@@ -248,13 +249,9 @@ public abstract class AbstractBundler {
                                 cdsHooksProcessor.addActivityDefinitionFilesToBundle(igPath, bundleDestPath, activityDefinitionPaths, fhirContext, encoding);
                             }
 
-                            //Inform user of total # of files copied during  Bundle Test Case Files process:
-                            if (!possibleBundleTestMessage.isEmpty()) {
-                                bundleTestFileStringBuilder.append(possibleBundleTestMessage);
-                            }
                             //If user supplied a fhir server url, inform them of total # of files to be persisted to the server:
                             if (fhirUri != null && !fhirUri.isEmpty()) {
-                                bundleTestFileStringBuilder.append("\r\n")
+                                persistedFileReport.append("\r\n")
                                         //all persisted files + the bundle:
                                         .append(persistedExtraFiles.size() + 1)
                                         .append(" total files will be posted to ")
@@ -285,10 +282,8 @@ public abstract class AbstractBundler {
 
             ThreadUtils.executeTasks(tasks);
 
-            //Test file information:
-            String bundleTestFileMessage = bundleTestFileStringBuilder.toString();
-            if (!bundleTestFileMessage.isEmpty()) {
-                System.out.println(bundleTestFileMessage);
+            if (!persistedFileReport.toString().isEmpty()) {
+                System.out.println(persistedFileReport);
             }
 
 
@@ -367,10 +362,9 @@ public abstract class AbstractBundler {
 
     protected abstract List<String> persistExtraFiles(String bundleDestPath, String libraryName, IOUtils.Encoding encoding, FhirContext fhirContext, String fhirUri);
 
-    private String bundleFiles(String igPath, String bundleDestPath, String primaryLibraryName, List<String> binaryPaths, String resourceFocusSourcePath,
-                               String librarySourcePath, FhirContext fhirContext, IOUtils.Encoding encoding, Boolean includeTerminology, Boolean includeDependencies, Boolean includePatientScenarios,
-                               Boolean includeVersion, Boolean addBundleTimestamp, Map<String, List<CqlCompilerException>> translatorWarningMessages) {
-        String bundleMessage = "";
+    private void bundleFiles(String igPath, String bundleDestPath, String primaryLibraryName, List<String> binaryPaths, String resourceFocusSourcePath,
+                             String librarySourcePath, FhirContext fhirContext, IOUtils.Encoding encoding, Boolean includeTerminology, Boolean includeDependencies, Boolean includePatientScenarios,
+                             Boolean includeVersion, Boolean addBundleTimestamp, Map<String, List<CqlCompilerException>> translatorWarningMessages) {
 
         String bundleDestFilesPath = FilenameUtils.concat(bundleDestPath, primaryLibraryName + "-" + IGBundleProcessor.bundleFilesPathElement);
         IOUtils.initializeDirectory(bundleDestFilesPath);
@@ -398,20 +392,19 @@ public abstract class AbstractBundler {
             }
         }
 
-//        if (includeDependencies) {
-        Map<String, IBaseResource> depLibraries = ResourceUtils.getDepLibraryResources(librarySourcePath, fhirContext, encoding, includeVersion, logger);
-        if (!depLibraries.isEmpty()) {
-            String depLibrariesID = "library-deps-" + primaryLibraryName;
-            Object bundle = BundleUtils.bundleArtifacts(depLibrariesID, new ArrayList<IBaseResource>(depLibraries.values()), fhirContext, addBundleTimestamp, this.getIdentifiers());
-            IOUtils.writeBundle(bundle, bundleDestFilesPath, encoding, fhirContext);
+        if (includeDependencies) {
+            Map<String, IBaseResource> depLibraries = ResourceUtils.getDepLibraryResources(librarySourcePath, fhirContext, encoding, includeVersion, logger);
+            if (!depLibraries.isEmpty()) {
+                String depLibrariesID = "library-deps-" + primaryLibraryName;
+                Object bundle = BundleUtils.bundleArtifacts(depLibrariesID, new ArrayList<IBaseResource>(depLibraries.values()), fhirContext, addBundleTimestamp, this.getIdentifiers());
+                IOUtils.writeBundle(bundle, bundleDestFilesPath, encoding, fhirContext);
+            }
         }
-//        }
 
         if (includePatientScenarios) {
-            bundleMessage = TestCaseProcessor.bundleTestCaseFiles(igPath, getResourceTestGroupName(), primaryLibraryName, bundleDestFilesPath, fhirContext);
+            TestCaseProcessor.bundleTestCaseFiles(igPath, getResourceTestGroupName(), primaryLibraryName, bundleDestFilesPath, fhirContext);
         }
 
-        return bundleMessage;
     }
 
 

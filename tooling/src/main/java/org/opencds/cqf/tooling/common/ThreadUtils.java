@@ -16,11 +16,16 @@ public class ThreadUtils {
 
     private static List<ExecutorService> runningExecutors = new ArrayList<>();
 
+    private static final int threadPoolCount = Runtime.getRuntime().availableProcessors() * 2;
+
     /**
      * Executes a list of tasks concurrently using a thread pool.
      * <p>
      * This method takes a list of Callable tasks and executes them concurrently using a thread pool. It utilizes
-     * an ExecutorService with a cached thread pool configuration to manage the execution of the tasks.
+     * an ExecutorService with a Fixed Thread Pool configuration based on system core count to manage the execution of the tasks.
+     *      NOTE: cachedThreadPool works in Windows fine but macOS/linux poorly handles the Executor so fixing the pool count
+     *      to the system's core count * 2 is needed for larger operations.
+     *
      * The method waits for all tasks to complete before returning.
      *
      * @param tasks A list of Callable tasks to execute concurrently.
@@ -55,18 +60,18 @@ public class ThreadUtils {
             if (retryTasks.isEmpty()) {
                 runningExecutors.remove(executor);
                 executor.shutdown();
-            }else{
+            } else {
                 executeTasks(retryTasks, executor);
             }
         }
     }
 
     public static void executeTasks(List<Callable<Void>> tasks) {
-        executeTasks(tasks, Executors.newCachedThreadPool());
+        executeTasks(tasks, Executors.newFixedThreadPool(threadPoolCount));
     }
 
     public static void executeTasks(Queue<Callable<Void>> callables) {
-        executeTasks(new ArrayList<>(callables), Executors.newCachedThreadPool());
+        executeTasks(new ArrayList<>(callables), Executors.newFixedThreadPool(threadPoolCount));
     }
 
     public static void shutdownRunningExecutors() {
@@ -76,7 +81,7 @@ public class ThreadUtils {
                 es.shutdownNow();
             }
             runningExecutors = new ArrayList<>();
-        }catch (Exception e){
+        } catch (Exception e) {
             //fail silently, shutting down anyways
         }
     }
